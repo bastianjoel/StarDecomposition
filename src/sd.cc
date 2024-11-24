@@ -1,6 +1,7 @@
 #include "sd.h"
+#include <iomanip>
 
-std::vector<Mesh> sdm(Mesh& N) {
+std::vector<Mesh> sd(Mesh& N) {
     for (auto c : N.cells()) {
         if (N.degenerate_or_inverted(c)) {
             std::cout << "Degenerate or inverted tetrahedron in N" << std::endl;
@@ -8,14 +9,15 @@ std::vector<Mesh> sdm(Mesh& N) {
         }
     }
 
-    auto NQ = N.property<Vertex, Vector3q>("Q");
+    auto Q = N.property<Vertex, Vector3q>("Q");
     for (auto v : N.vertices()) {
-        NQ[v] = N.position(v).cast<mpq_class>();
+        Q[v] = N.position(v).cast<mpq_class>();
     }
 
+
     std::cout << "Decompose" << std::endl;
-    std::vector<Vector3q> centers = decompose(N);
-    std::cout << "Finished decompose" << std::endl;
+    // std::vector<Vector3q> centers = decompose(N);
+    std::vector<Vector3q> centers = decompose_by_corners(N);
     auto cmp = N.property<Cell, int>("cmp");
     int n_cuts = 0;
     for (auto c : N.cells()) {

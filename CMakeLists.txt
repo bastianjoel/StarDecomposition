@@ -66,7 +66,7 @@ if(GUI)
 endif()
 
 add_library(StarDecomposition)
-target_sources(StarDecomposition PRIVATE src/decompose.cc src/lp.cc src/main.cc src/mesh.cc src/retet.cc src/sd.cc)
+target_sources(StarDecomposition PRIVATE src/decompose.cc src/dec_corners.cc src/lp.cc src/main.cc src/mesh.cc src/retet.cc src/sd.cc)
 target_link_libraries(StarDecomposition Eigen3::Eigen CGAL::CGAL ${GMP_LIBRARIES} ${GMPXX_LIBRARIES} OpenVolumeMesh::OpenVolumeMesh OpenMeshCore predicates tet)
 target_include_directories(StarDecomposition PUBLIC ${CGAL_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${GMPXX_INCLUDE_DIR} ext/OpenVolumeMesh/src ${CMAKE_BINARY_DIR}/ext/OpenVolumeMesh/src ext/OpenMesh/src ext/tetgen src)
 

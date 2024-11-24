@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::vector<Mesh> components = sdm(N);
+    std::vector<Mesh> components = sd(N);
     if (components.size() == 0) {
         return 0;
     }
