@@ -1,5 +1,4 @@
 #include "sd.h"
-#include <iomanip>
 
 std::vector<Mesh> sd(Mesh& N) {
     for (auto c : N.cells()) {
@@ -17,7 +16,8 @@ std::vector<Mesh> sd(Mesh& N) {
 
     std::cout << "Decompose" << std::endl;
     // std::vector<Vector3q> centers = decompose(N);
-    std::vector<Vector3q> centers = decompose_by_corners(N);
+    StarDecompositionBoundary decomposer(N);
+    std::vector<Vector3q> centers = decomposer.centers();
     auto cmp = N.property<Cell, int>("cmp");
     int n_cuts = 0;
     for (auto c : N.cells()) {
