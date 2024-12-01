@@ -11,9 +11,10 @@ public:
 private:
   Mesh& _mesh;
   bool _computed;
-  Property<Halfface, int> _cmp;
+  Property<Vertex, Vector3q> _Q;
   Property<Halfface, Vector3q> _normal;
+  Property<Halfface, int> _cmp;
   std::set<Halfface> _surface_hf;
   void run();
-  bool can_add_halfface(Mesh& cmpMesh, Halfface& hf, Property<Vertex, Vertex> vertexMap);
+  bool add_halfface(std::set<Halfface>& cmpHf, Halfface& hf);
 };
