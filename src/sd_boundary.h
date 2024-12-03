@@ -15,6 +15,7 @@ private:
   Property<Halfface, Vector3q> _normal;
   Property<Halfface, int> _cmp;
   std::set<Halfface> _surface_hf;
+  std::vector<Halfface> _boundary;
   void run();
   bool add_halfface(std::set<Halfface>& cmpHf, Halfface& hf);
 };

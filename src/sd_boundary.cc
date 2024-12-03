@@ -3,6 +3,7 @@
 #include <map>
 #include <queue>
 #include <stack>
+#include <OpenMesh/Core/IO/MeshIO.hh>
 
 const int cmpNotSetIdx = 0; // TODO: Decrease
 StarDecompositionBoundary::StarDecompositionBoundary(Mesh& mesh) : _mesh(mesh), _computed(false) {
@@ -10,7 +11,8 @@ StarDecompositionBoundary::StarDecompositionBoundary(Mesh& mesh) : _mesh(mesh), 
 
     _Q = mesh.property<Vertex, Vector3q>("Q");
     _normal = mesh.property<Halfface, Vector3q>();
-    for (auto hf : _mesh.boundary_halffaces()) {
+    _boundary = _mesh.boundary_halffaces();
+    for (auto hf : _boundary) {
         Halfface h = mesh.halfface_handle(hf.face_handle(), 0);
         std::vector<Vector3q> triangle;
         for (auto hv : mesh.halfface_vertices(h)) {
@@ -122,9 +124,28 @@ bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface
         mesh.property(normal, face) = _normal[h];
     }
 
+    // Expand boundary to next opposite halfface
+    for (auto heh : mesh.halfedges()) {
+        if (!mesh.is_boundary(heh)) {
+            continue;
+        }
+
+        auto v = mesh.to_vertex_handle(heh);
+        auto n = mesh.property(normal, mesh.opposite_face_handle(heh));
+        // Find cutting boundary face
+        for (auto hf : _boundary) {
+            auto faceNormal = _normal[hf];
+            auto b = faceNormal * _Q[*_mesh.halfface_vertices(hf).first];
+
+            // TODO: Calculate intersection
+
+            // TODO: Check if point is within face bounds
+        }
+    }
+
+    // Close boundary
     bool gotToEnd = false;
     int addedFaces = 0;
-    bool lastWasError = false;
     while (!gotToEnd) {
         gotToEnd = true;
         for (auto startHeh : mesh.halfedges()) {
@@ -152,9 +173,12 @@ bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface
             triangle.push_back(mesh.from_vertex_handle(startHeh));
             triangle.push_back(mesh.to_vertex_handle(startHeh));
             triangle.push_back(mesh.to_vertex_handle(heh));
+
+            // TODO: Do not add face if it cuts through face in _mesh
+
             auto face = mesh.add_face(triangle);
             if (!face.is_valid()) {
-                lastWasError = true;
+                throw std::runtime_error("Error: could not add face to component mesh");
                 continue;
             }
 
@@ -162,15 +186,11 @@ bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface
             mesh.property(normal, face) = n;
             gotToEnd = false;
             addedFaces++;
-            lastWasError = false;
             break;
         }
     }
 
-    std::cout << "Added faces: " << addedFaces << " | Ended in error: " << lastWasError << std::endl;
-    if (lastWasError) {
-        throw std::runtime_error("Error: lastWasError");
-    }
+    std::cout << "Added faces: " << addedFaces << std::endl;
 
     std::vector<Eigen::Vector3d> positions;
     std::vector<Eigen::Vector3d> normals;
@@ -194,7 +214,17 @@ bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface
     }
 
     if (!new_center_valid) {
+        if (addedFaces > 10 && !OpenMesh::IO::write_mesh(mesh, "invalid_center.off")) {
+            std::cerr << "write error\n";
+            exit(1);
+        }
+
         cmpHf.erase(hf);
+    } else {
+        if (addedFaces > 10 && !OpenMesh::IO::write_mesh(mesh, "valid_center.off")) {
+            std::cerr << "write error\n";
+            exit(1);
+        }
     }
 
     return new_center_valid;
