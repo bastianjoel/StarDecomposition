@@ -11,6 +11,7 @@ public:
 private:
   Mesh& _mesh;
   bool _computed;
+  int _cmpIdx = 0;
   Property<Vertex, Vector3q> _Q;
   Property<Halfface, Vector3q> _normal;
   Property<Halfface, int> _cmp;
