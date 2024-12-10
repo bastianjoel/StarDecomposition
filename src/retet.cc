@@ -1,6 +1,6 @@
 #include "retet.h"
 
-bool retetrahedrize(Mesh& mesh) {
+bool retetrahedrize(VolumeMesh& mesh) {
     tetgenbehavior behavior;
     behavior.plc = 1;
     behavior.quality = 1;
@@ -51,7 +51,7 @@ bool retetrahedrize(Mesh& mesh) {
         std::cout << "TetGen failed" << std::endl;
         return false;
     }
-    mesh = Mesh();
+    mesh = VolumeMesh();
     std::vector<Vertex> vertices;
     for (int i = 0; i < out.numberofpoints; i++) {
         Eigen::Vector3d p;

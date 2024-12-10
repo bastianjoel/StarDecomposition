@@ -7,7 +7,7 @@
 #include <OpenMesh/Core/IO/MeshIO.hh>
 
 const int cmpNotSetIdx = -1;
-StarDecompositionBoundary::StarDecompositionBoundary(Mesh& mesh) : _mesh(mesh), _computed(false) {
+StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) : _mesh(mesh), _computed(false) {
     _cmp = mesh.property<Halfface, int>("cmp", cmpNotSetIdx);
 
     _Q = mesh.property<Vertex, Vector3q>("Q");
@@ -34,12 +34,12 @@ std::vector<Vector3q> StarDecompositionBoundary::centers() {
     return std::vector<Vector3q>();
 }
 
-std::vector<Mesh> StarDecompositionBoundary::components() {
+std::vector<VolumeMesh> StarDecompositionBoundary::components() {
     if (!this->_computed) {
         this->run();
     }
 
-    return std::vector<Mesh>();
+    return std::vector<VolumeMesh>();
 }
 
 void StarDecompositionBoundary::run() {

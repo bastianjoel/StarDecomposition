@@ -7,10 +7,10 @@
 
 #include "assertion.h"
 #include "lp.h"
-#include "mesh.h"
+#include "volume_mesh.h"
 #include "sd_boundary.h"
 #include "vectorq.h"
 
-std::vector<Mesh> sd(Mesh& N);
+std::vector<VolumeMesh> sd(VolumeMesh& N);
 
-std::vector<Vector3q> decompose(Mesh& mesh);
+std::vector<Vector3q> decompose(VolumeMesh& mesh);

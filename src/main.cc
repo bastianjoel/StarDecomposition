@@ -4,7 +4,7 @@
 #ifdef GUI
 #include "viewer.h"
 
-Mesh viewer_mesh;
+VolumeMesh viewer_mesh;
 Viewer viewer(viewer_mesh);
 
 bool show_coordinate_system = false;
@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
         N_filename = path + SEP + "meshes" + SEP + "thumb.vtk";
     }
     int orientation = 0;
-    Mesh N = read(N_filename, orientation);
+    VolumeMesh N = read(N_filename, orientation);
 
     for (auto c : N.cells()) {
         if (N.degenerate_or_inverted(c)) {
@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::vector<Mesh> components = sd(N);
+    std::vector<VolumeMesh> components = sd(N);
     if (components.size() == 0) {
         return 0;
     }
@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
     if (out_dir != "") {
         for (int i = 0; i < components.size(); i++) {
             for (int j = 0; j < 2; j++) {
-                Mesh& mesh = j == 0 ? components[i].first : components[i].second;
+                VolumeMesh& mesh = j == 0 ? components[i].first : components[i].second;
                 auto Q = mesh.property<Vertex, Vector3q>("Q");
                 auto Q_string = mesh.property<Vertex, std::string>("Q_string");
                 for (auto v : mesh.vertices()) {
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
     std::default_random_engine gen(rd());
     std::uniform_real_distribution<> dis(0, 1);
     for (int i = 0; i < components.size(); i++) {
-        Mesh& Mi = components[i];
+        VolumeMesh& Mi = components[i];
         Eigen::Vector3d color = normalize_color({dis(gen), dis(gen), dis(gen)});
         auto vmap = Mi.property<Vertex, Vertex>();
         for (auto c : Mi.cells()) {

@@ -10,11 +10,11 @@
 #include <imgui_impl_opengl3.h>
 #include <tinyfiledialogs.h>
 
-#include "mesh.h"
+#include "volume_mesh.h"
 
 class Viewer {
 public:
-    Viewer(Mesh& mesh);
+    Viewer(VolumeMesh& mesh);
 
     void start(std::function<void()> callback, std::string path, std::string title);
 
@@ -58,7 +58,7 @@ private:
 
     Eigen::Vector2d to_screen(ImVec2 mouse_pos, ImVec2 size);
 
-    Mesh& mesh_;
+    VolumeMesh& mesh_;
 
     std::function<void()> callback_;
 

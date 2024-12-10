@@ -2,6 +2,6 @@
 
 #include <tetgen.h>
 
-#include "mesh.h"
+#include "volume_mesh.h"
 
-bool retetrahedrize(Mesh& mesh);
+bool retetrahedrize(VolumeMesh& mesh);

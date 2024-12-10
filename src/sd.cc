@@ -1,6 +1,6 @@
 #include "sd.h"
 
-std::vector<Mesh> sd(Mesh& N) {
+std::vector<VolumeMesh> sd(VolumeMesh& N) {
     for (auto c : N.cells()) {
         if (N.degenerate_or_inverted(c)) {
             std::cout << "Degenerate or inverted tetrahedron in N" << std::endl;
@@ -29,12 +29,12 @@ std::vector<Mesh> sd(Mesh& N) {
         }
     }
     std::cout << n_cuts + 1 << " components" << std::endl;
-    std::vector<Mesh> components(n_cuts + 1);
+    std::vector<VolumeMesh> components(n_cuts + 1);
 
     int n_skips = 0;
     int cnt = 0;
     for (int i = 0; i <= n_cuts; i++) {
-        Mesh& S = components[i];
+        VolumeMesh& S = components[i];
 
         std::vector<Cell> cells;
         for (auto c : N.cells()) {

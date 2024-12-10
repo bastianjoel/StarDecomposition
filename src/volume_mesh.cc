@@ -1,4 +1,4 @@
-#include "mesh.h"
+#include "volume_mesh.h"
 
 Eigen::Vector3d hsv_to_rgb(const Eigen::Vector3d& hsv) {
     int h = (int) (hsv(0) / (M_PI / 3)) % 6;
@@ -60,7 +60,7 @@ double orient3d(const std::vector<Eigen::Vector3d>& _tetrahedron) {
     return orient3d(tetrahedron[0].data(), tetrahedron[1].data(), tetrahedron[2].data(), tetrahedron[3].data());
 }
 
-Halfedge Mesh::halfedge_opposite_halfedge(Halfedge e, ::Cell c) {
+Halfedge VolumeMesh::halfedge_opposite_halfedge(Halfedge e, ::Cell c) {
     Vertex a = from_vertex_handle(e);
     Vertex b = to_vertex_handle(e);
     std::vector<Vertex> opposite_vertices;
@@ -75,7 +75,7 @@ Halfedge Mesh::halfedge_opposite_halfedge(Halfedge e, ::Cell c) {
     return find_halfedge(opposite_vertices[0], opposite_vertices[1]);
 }
 
-Halfface Mesh::vertex_opposite_halfface(Vertex v, ::Cell c) {
+Halfface VolumeMesh::vertex_opposite_halfface(Vertex v, ::Cell c) {
     for (auto ch : cell_halffaces(c)) {
         bool has_v = false;
         for (auto chv : halfface_vertices(ch)) {
@@ -91,7 +91,7 @@ Halfface Mesh::vertex_opposite_halfface(Vertex v, ::Cell c) {
     return Halfface(-1);
 }
 
-void Mesh::remove_cell(::Cell c) {
+void VolumeMesh::remove_cell(::Cell c) {
     std::vector<Vertex> vertices;
     for (auto cv : tet_vertices(c)) {
         vertices.push_back(cv);
@@ -122,7 +122,7 @@ void Mesh::remove_cell(::Cell c) {
     }
 }
 
-void Mesh::remove_cells(std::vector<::Cell> cells) {
+void VolumeMesh::remove_cells(std::vector<::Cell> cells) {
     std::set<::Face> faces;
     for (auto c : cells) {
         for (auto f : cell_faces(c)) {
@@ -155,7 +155,7 @@ void Mesh::remove_cells(std::vector<::Cell> cells) {
     }
 }
 
-Vertex Mesh::split_tet(::Cell c, const Eigen::Vector3d& p) {
+Vertex VolumeMesh::split_tet(::Cell c, const Eigen::Vector3d& p) {
     Vertex v = add_vertex(p);
     std::vector<std::vector<Vertex>> tets;
     for (auto ch : cell_halffaces(c)) {
@@ -173,7 +173,7 @@ Vertex Mesh::split_tet(::Cell c, const Eigen::Vector3d& p) {
     return v;
 }
 
-std::vector<Vertex> Mesh::boundary_vertices() {
+std::vector<Vertex> VolumeMesh::boundary_vertices() {
     std::vector<Vertex> boundary_vertices;
     for (auto v : vertices()) {
         if (is_boundary(v)) {
@@ -183,7 +183,7 @@ std::vector<Vertex> Mesh::boundary_vertices() {
     return boundary_vertices;
 }
 
-std::vector<::Edge> Mesh::boundary_edges() {
+std::vector<::Edge> VolumeMesh::boundary_edges() {
     std::vector<::Edge> boundary_edges;
     for (auto e : edges()) {
         if (is_boundary(e)) {
@@ -193,7 +193,7 @@ std::vector<::Edge> Mesh::boundary_edges() {
     return boundary_edges;
 }
 
-std::vector<Halfface> Mesh::boundary_halffaces() {
+std::vector<Halfface> VolumeMesh::boundary_halffaces() {
     std::vector<Halfface> boundary_halffaces;
     for (auto h : halffaces()) {
         if (is_boundary(h)) {
@@ -203,7 +203,7 @@ std::vector<Halfface> Mesh::boundary_halffaces() {
     return boundary_halffaces;
 }
 
-Halfface Mesh::boundary_halfface(Halfedge e) {
+Halfface VolumeMesh::boundary_halfface(Halfedge e) {
     for (auto eh : halfedge_halffaces(e)) {
         if (is_boundary(eh)) {
             return eh;
@@ -212,11 +212,11 @@ Halfface Mesh::boundary_halfface(Halfedge e) {
     return Halfface(-1);
 }
 
-Halfedge Mesh::boundary_next(Halfedge e) {
+Halfedge VolumeMesh::boundary_next(Halfedge e) {
     return next_halfedge_in_halfface(e, boundary_halfface(e));
 }
 
-Halfedge Mesh::boundary_out(Vertex v) {
+Halfedge VolumeMesh::boundary_out(Vertex v) {
     for (auto ve : vertex_edges(v)) {
         if (is_boundary(ve)) {
             Halfedge e = halfedge_handle(ve, 0);
@@ -230,7 +230,7 @@ Halfedge Mesh::boundary_out(Vertex v) {
     return Halfedge(-1);
 }
 
-bool Mesh::degenerate_or_inverted(::Cell c) {
+bool VolumeMesh::degenerate_or_inverted(::Cell c) {
     std::vector<Eigen::Vector3d> tetrahedron;
     for (auto cv : tet_vertices(c)) {
         tetrahedron.push_back(position(cv));
@@ -238,8 +238,8 @@ bool Mesh::degenerate_or_inverted(::Cell c) {
     return orient3d(tetrahedron) >= 0;
 }
 
-Mesh read(std::string filename, int& orientation) {
-    Mesh mesh;
+VolumeMesh read(std::string filename, int& orientation) {
+    VolumeMesh mesh;
     std::string extension = filename.substr(filename.rfind('.') + 1);
     if (extension == "ovm") {
         OpenVolumeMesh::IO::FileManager fm;
@@ -422,7 +422,7 @@ Mesh read(std::string filename, int& orientation) {
     return mesh;
 }
 
-Mesh read(std::string filename) {
+VolumeMesh read(std::string filename) {
     int orientation = 0;
     return read(filename, orientation);
 }

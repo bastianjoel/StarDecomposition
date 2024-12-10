@@ -1,35 +1,16 @@
 #pragma once
 
 #include "mesh.h"
+#include "volume_mesh.h"
 #include "vectorq.h"
-
-// define traits
-struct MyTraits : public OpenMesh::DefaultTraits
-{
-  typedef Eigen::Vector3d Point;
-  typedef Eigen::Vector3d Normal;
-
-  // use face normals
-  FaceAttributes(OpenMesh::Attributes::Normal);
-
-  VertexTraits {
-    private:
-      Vector3q _q;
-    public:
-      const Vector3q& Q() const { return _q; }
-      void set_q(const Vector3q& q) { _q = q; }
-  };
-};
-
-typedef OpenMesh::TriMesh_ArrayKernelT<MyTraits>  MyMesh;
 
 class StarDecompositionBoundary {
 public:
-  StarDecompositionBoundary(Mesh& m);
+  StarDecompositionBoundary(VolumeMesh& m);
   std::vector<Vector3q> centers();
-  std::vector<Mesh> components();
+  std::vector<VolumeMesh> components();
 private:
-  Mesh& _mesh;
+  VolumeMesh& _mesh;
   bool _computed;
   int _cmpIdx = 0;
   Property<Vertex, Vector3q> _Q;

@@ -3,7 +3,7 @@
 
 #include "viewer.h"
 
-Viewer::Viewer(Mesh& mesh)
+Viewer::Viewer(VolumeMesh& mesh)
     : mesh_(mesh), rot_(false), trans_(false), rot_cam_(false), scale_(0.5), closed_(false),
       show_cells_(true), show_faces_(false), show_edges_(false), show_vertices_(false),
       vertex_face_colors_(false), use_texture_(false), parameter_space_(false), twod_(false),
