@@ -1,5 +1,6 @@
 #pragma once
 
+#include "OpenMesh/Core/Mesh/Attributes.hh"
 #include "OpenMesh/Core/Mesh/Traits.hh"
 #include "OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh"
 #include "vectorq.h"
@@ -12,7 +13,9 @@ struct MyTraits : public OpenMesh::DefaultTraits
   typedef Eigen::Vector3d Normal;
 
   // use face normals
-  FaceAttributes(OpenMesh::Attributes::Normal);
+  FaceAttributes(OpenMesh::Attributes::Normal | OpenMesh::Attributes::Status);
+
+  VertexAttributes(OpenMesh::Attributes::Status);
 
   VertexTraits {
     private:
@@ -23,4 +26,4 @@ struct MyTraits : public OpenMesh::DefaultTraits
   };
 };
 
-typedef OpenMesh::TriMesh_ArrayKernelT<MyTraits>  MyMesh;
+typedef OpenMesh::TriMesh_ArrayKernelT<MyTraits>  Mesh;

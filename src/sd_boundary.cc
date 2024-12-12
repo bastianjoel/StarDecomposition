@@ -7,22 +7,33 @@
 #include <OpenMesh/Core/IO/MeshIO.hh>
 
 const int cmpNotSetIdx = -1;
-StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) : _mesh(mesh), _computed(false) {
-    _cmp = mesh.property<Halfface, int>("cmp", cmpNotSetIdx);
+StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) : _computed(false), _wasVolumeMesh(true), _originalMesh(mesh) {
+    _mesh.add_property(_cmp);
 
-    _Q = mesh.property<Vertex, Vector3q>("Q");
-    _normal = mesh.property<Halfface, Vector3q>();
-    _boundary = _mesh.boundary_halffaces();
-    for (auto hf : _boundary) {
-        Halfface h = mesh.halfface_handle(hf.face_handle(), 0);
+    _mesh.add_property(_Q);
+    _mesh.add_property(_normalQ);
+    _mesh.add_property(_originalHf);
+
+    auto Q = mesh.property<Vertex, Vector3q>("Q");
+    std::map<Vertex, OpenMesh::VertexHandle> vMap;
+    for (auto v : mesh.vertices()) {
+        vMap[v] = _mesh.add_vertex(Mesh::Point(Q[v][0].get_d(), Q[v][1].get_d(), Q[v][2].get_d()));
+        _mesh.property(_Q, vMap[v]) = Q[v];
+    }
+
+    for (auto hf : mesh.boundary_halffaces()) {
+        std::vector<OpenMesh::VertexHandle> newHfVertices;
         std::vector<Vector3q> triangle;
-        for (auto hv : mesh.halfface_vertices(h)) {
-            triangle.push_back(_Q[hv]);
+        for (auto hv : mesh.halfface_vertices(hf)) {
+            newHfVertices.push_back(vMap[hv]);
+            triangle.push_back(Q[hv]);
         }
+        auto face = _mesh.add_face(newHfVertices);
         Vector3q n = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]);
-        _normal[h] = n;
-        _normal[mesh.opposite_halfface_handle(h)] = -n;
-        _surface_hf.insert(h);
+        _mesh.property(_normalQ, face) = n;
+        _mesh.property(_cmp, face) = cmpNotSetIdx;
+        _mesh.property(_originalHf, face) = hf;
+        _mesh.set_normal(face, n.unaryExpr([](mpq_class x) { return x.get_d(); }));
     }
 }
 
@@ -43,34 +54,31 @@ std::vector<VolumeMesh> StarDecompositionBoundary::components() {
 }
 
 void StarDecompositionBoundary::run() {
-    std::queue<Halfface> queue;
-    queue.push(*_surface_hf.begin());
-    auto meshCmp = _mesh.property<Cell, int>("cmp", cmpNotSetIdx);
+    std::queue<OpenMesh::FaceHandle> queue;
+    queue.push(*_mesh.faces_begin());
 
     _cmpIdx = 0;
     while (!queue.empty()) {
-        Halfface h = queue.front();
+        OpenMesh::FaceHandle h = queue.front();
         queue.pop();
-        if (_cmp[h] != cmpNotSetIdx) {
+        if (_mesh.property(_cmp, h) != cmpNotSetIdx) {
             continue;
         }
 
         add_component(h);
 
         std::set<Halfface> cmpHf;
-        std::stack<Halfface> candidates;
-        for (auto he : _mesh.halfface_edges(h)) {
-            for (auto eh : _mesh.edge_halffaces(he)) {
-                if (_surface_hf.find(eh) != _surface_hf.end() && _cmp[eh] == cmpNotSetIdx) {
-                    candidates.push(eh);
-                }
+        std::stack<OpenMesh::FaceHandle> candidates;
+        for (auto he : _mesh.fh_range(h)) {
+            auto oFace = _mesh.opposite_face_handle(he);
+            if (oFace.is_valid()) {
+                candidates.push(oFace);
             }
         }
-
         while (!candidates.empty()) {
             auto nextH = candidates.top();
             candidates.pop();
-            if (_cmp[nextH] != cmpNotSetIdx) {
+            if (_mesh.property(_cmp, nextH) != cmpNotSetIdx) {
                 continue;
             }
 
@@ -79,62 +87,59 @@ void StarDecompositionBoundary::run() {
                 continue;
             }
 
-            meshCmp[_mesh.incident_cell(nextH)] = _cmpIdx; // TODO: Remove
-            _cmp[nextH] = _cmpIdx;
-            for (auto he : _mesh.halfface_edges(nextH)) {
-                for (auto eh : _mesh.edge_halffaces(he)) {
-                    // Skip if cell is not a surface cell or starting halfface
-                    if (_surface_hf.find(eh) == _surface_hf.end() || nextH == eh) {
-                        continue;
-                    }
-
-                    if (_cmp[eh] != cmpNotSetIdx) {
-                        continue;
-                    }
-
-                    candidates.push(eh);
+            _mesh.property(_cmp, nextH) = _cmpIdx;
+            for (auto he : _mesh.fh_range(nextH)) {
+                auto oFace = _mesh.opposite_face_handle(he);
+                if (oFace.is_valid() && _mesh.property(_cmp, oFace) == cmpNotSetIdx) {
+                    candidates.push(oFace);
                 }
             }
         }
         std::cout << "Cmp " << _cmpIdx << " amount faces: " << cmpHf.size() << std::endl;
     }
 
-    std::cout << "Num surface halffaces: " << _surface_hf.size() << std::endl;
     std::cout << "Num components: " << _cmpIdx << std::endl;
+
+    this->_computed = true;
+    if (this->_wasVolumeMesh) {
+        auto cmp = _originalMesh.property<Cell, int>("cmp", -1);
+        for (auto f : _mesh.faces()) {
+            auto oF = _originalMesh.opposite_halfface_handle(_mesh.property(_originalHf, f));
+            cmp[_originalMesh.incident_cell(oF)] = _mesh.property(_cmp, f);
+        }
+    }
 }
 
-MyMesh StarDecompositionBoundary::add_component(Halfface& startHf) {
-    _cmpVertexMap = std::map<Vertex, OpenMesh::SmartVertexHandle>();
+Mesh StarDecompositionBoundary::add_component(OpenMesh::FaceHandle startF) {
+    _cmpVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
 
-    MyMesh mesh;
+    Mesh mesh;
     std::vector<OpenMesh::VertexHandle> newHfVertices;
-    for (auto hv : _mesh.halfface_vertices(startHf)) {
-        auto newVertex = mesh.add_vertex(MyMesh::Point(_Q[hv][0].get_d(), _Q[hv][1].get_d(), _Q[hv][2].get_d()));
-        mesh.data(newVertex).set_q(_Q[hv]);
+    for (auto hv : _mesh.fv_range(startF)) {
+        auto hvQ = _mesh.property(_Q, hv);
+        auto newVertex = mesh.add_vertex(Mesh::Point(hvQ[0].get_d(), hvQ[1].get_d(), hvQ[2].get_d()));
+        mesh.data(newVertex).set_q(hvQ);
         _cmpVertexMap[hv] = newVertex;
         newHfVertices.push_back(newVertex);
     }
     auto face = mesh.add_face(newHfVertices);
-    mesh.set_normal(face, _normal[startHf].unaryExpr([](mpq_class x) { return x.get_d(); }));
+    mesh.set_normal(face, _mesh.property(_normalQ, startF).unaryExpr([](mpq_class x) { return x.get_d(); }));
 
+    _cmpIdx = _cmpMeshes.size();
     _cmpMeshes.push_back(mesh);
-    _cmpIdx = _cmpMeshes.size() - 1;
 
-    // TODO: Remove setting cell component property
-    auto meshCmp = _mesh.property<Cell, int>("cmp", cmpNotSetIdx);
-    meshCmp[_mesh.incident_cell(startHf)] = _cmpIdx;
-
-    _cmp[startHf] = _cmpIdx;
+    _mesh.property(_cmp, startF) = _cmpIdx;
     return mesh;
 }
 
-bool StarDecompositionBoundary::add_hf_to_cmp(int cmp, Halfface& hf) {
-    std::vector<Vertex> newHfVertices;
-    std::vector<OpenMesh::SmartVertexHandle> triangle;
-    for (auto hv : _mesh.halfface_vertices(hf)) {
+bool StarDecompositionBoundary::add_hf_to_cmp(int cmp, OpenMesh::FaceHandle hf) {
+    std::vector<OpenMesh::VertexHandle> newHfVertices;
+    std::vector<OpenMesh::VertexHandle> triangle;
+    for (auto hv : _mesh.fv_range(hf)) {
         if (!_cmpVertexMap[hv].is_valid()) {
-            auto newVertex = _cmpMeshes[cmp].add_vertex(MyMesh::Point(_Q[hv][0].get_d(), _Q[hv][1].get_d(), _Q[hv][2].get_d()));
-            _cmpMeshes[cmp].data(newVertex).set_q(_Q[hv]);
+            auto hvQ = _mesh.property(_Q, hv);
+            auto newVertex = _cmpMeshes[cmp].add_vertex(Mesh::Point(hvQ[0].get_d(), hvQ[1].get_d(), hvQ[2].get_d()));
+            _cmpMeshes[cmp].data(newVertex).set_q(hvQ);
             _cmpVertexMap[hv] = newVertex;
             newHfVertices.push_back(hv);
         }
@@ -146,15 +151,16 @@ bool StarDecompositionBoundary::add_hf_to_cmp(int cmp, Halfface& hf) {
 
     bool hasValidCenter = has_valid_center(_cmpMeshes[cmp]);
     if (!hasValidCenter) {
-        _cmpMeshes[cmp].delete_face(face, true);
         for (auto v : newHfVertices) {
             _cmpVertexMap.erase(v);
         }
+        _cmpMeshes[cmp].delete_face(face, true);
     }
 
     return hasValidCenter;
 }
 
+/*
 bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface& hf) {
     cmpHf.insert(hf);
 
@@ -162,7 +168,7 @@ bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface
         return true;
     }
 
-    MyMesh mesh;
+    Mesh mesh;
     OpenMesh::FPropHandleT<Vector3q> normal;
     OpenMesh::VPropHandleT<Vector3q> Q;
     mesh.add_property(normal);
@@ -172,7 +178,7 @@ bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface
         std::vector<OpenMesh::SmartVertexHandle> newHfVertices;
         for (auto hv : _mesh.halfface_vertices(h)) {
             if (!vertexMap[hv].is_valid()) {
-                auto newVertex = mesh.add_vertex(MyMesh::Point(_Q[hv][0].get_d(), _Q[hv][1].get_d(), _Q[hv][2].get_d()));
+                auto newVertex = mesh.add_vertex(Mesh::Point(_Q[hv][0].get_d(), _Q[hv][1].get_d(), _Q[hv][2].get_d()));
                 vertexMap[hv] = newVertex;
                 mesh.property(Q, newVertex) = _Q[hv];
             }
@@ -246,7 +252,7 @@ bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface
         if (opposite.size() > 0) {
             // std::cout << opposite[0].second.second << std::endl;
             auto newVPos = opposite[0].second.first;
-            auto newV = mesh.add_vertex(MyMesh::Point(newVPos[0].get_d(), newVPos[1].get_d(), newVPos[2].get_d()));
+            auto newV = mesh.add_vertex(Mesh::Point(newVPos[0].get_d(), newVPos[1].get_d(), newVPos[2].get_d()));
             mesh.property(Q, newV) = newVPos;
             auto face = mesh.add_face(mesh.from_vertex_handle(heh), v, newV);
             mesh.property(normal, face) = mesh.calc_normal(face).cast<mpq_class>();
@@ -359,13 +365,16 @@ bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface
 
     return new_center_valid;
 }
+*/
 
-bool StarDecompositionBoundary::has_valid_center(MyMesh mesh) {
+bool StarDecompositionBoundary::has_valid_center(Mesh mesh) {
     std::vector<Eigen::Vector3d> positions;
     std::vector<Eigen::Vector3d> normals;
     for (auto face : mesh.faces()) {
-        positions.push_back(mesh.point(mesh.to_vertex_handle(mesh.halfedge_handle(face))));
-        normals.push_back(mesh.normal(face).normalized());
+        if (face.is_valid() && !face.deleted()) {
+            positions.push_back(mesh.point(mesh.to_vertex_handle(mesh.halfedge_handle(face))));
+            normals.push_back(mesh.normal(face).normalized());
+        }
     }
 
     Vector3q new_center = kernel_chebyshev_center(positions, normals).cast<mpq_class>();
