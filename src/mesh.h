@@ -19,10 +19,18 @@ struct MyTraits : public OpenMesh::DefaultTraits
 
   VertexTraits {
     private:
-      Vector3q _q;
+      Vector3q _point_q;
     public:
-      const Vector3q& Q() const { return _q; }
-      void set_q(const Vector3q& q) { _q = q; }
+      const Vector3q& point_q() const { return _point_q; }
+      void set_point_q(const Vector3q& q) { _point_q = q; }
+  };
+
+  FaceTraits {
+    private:
+      Vector3q _normal_q;
+    public:
+      const Vector3q& normal_q() const { return _normal_q; }
+      void set_normal_q(const Vector3q& q) { _normal_q = q; }
   };
 };
 

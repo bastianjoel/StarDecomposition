@@ -32,6 +32,8 @@ private:
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
   Mesh add_component(OpenMesh::FaceHandle startF);
   bool add_hf_to_cmp(int cmp, OpenMesh::FaceHandle hf);
+  std::pair<OpenMesh::FaceHandle, Vector3q> get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle hf);
+  // OpenMesh::FaceHandle check_intersecting(OpenMesh::FaceHandle hf);
 
   // Direct add (experiment)
   bool add_halfface(std::set<Halfface>& cmpHf, Halfface& hf);
