@@ -32,6 +32,7 @@ private:
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
   Mesh add_component(OpenMesh::FaceHandle startF);
   bool add_hf_to_cmp(int cmp, OpenMesh::FaceHandle hf);
+  bool point_in_triangle(Vector3q p, Vector3q v0, Vector3q v1, Vector3q v2);
   std::pair<OpenMesh::FaceHandle, Vector3q> get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle hf);
   // OpenMesh::FaceHandle check_intersecting(OpenMesh::FaceHandle hf);
 

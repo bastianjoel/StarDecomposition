@@ -1,7 +1,9 @@
 #include "sd_boundary.h"
 #include "lp.h"
 #include "tritri.h"
+#include <cmath>
 #include <cstdio>
+#include <limits>
 #include <map>
 #include <queue>
 #include <stack>
@@ -144,8 +146,11 @@ Mesh StarDecompositionBoundary::add_component(OpenMesh::FaceHandle startF) {
             auto of = mesh.add_face(mesh.from_vertex_handle(ohe), mesh.to_vertex_handle(ohe), newVertex);
             mesh.set_normal(of, mesh.calc_normal(of));
         }
+
+        mesh.delete_vertex(newVertex, true);
     } else {
         std::cout << "Opposite face not found" << std::endl;
+        exit(1);
     }
 
     _cmpIdx = _cmpMeshes.size();
@@ -188,8 +193,10 @@ bool StarDecompositionBoundary::add_hf_to_cmp(int cmp, OpenMesh::FaceHandle hf) 
 }
 
 std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle origin) {
-    auto v = mesh.to_vertex_handle(_mesh.halfedge_handle(origin));
-    auto vPos = mesh.data(v).point_q();
+    auto v0 = mesh.to_vertex_handle(_mesh.halfedge_handle(origin));
+    auto v1 = mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(origin)));
+    auto v2 = mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(origin))));
+    Vector3q vPos = (mesh.data(v0).point_q() + mesh.data(v1).point_q() + mesh.data(v2).point_q()) / 3;
     auto n = mesh.data(origin).normal_q();
 
     double distResult = -1;
@@ -204,9 +211,9 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_opposit
             continue;
         }
 
-        std::vector<Eigen::Vector3d> triangle;
+        std::vector<Vector3q> triangle;
         for (auto hv : _mesh.fv_range(f)) {
-            triangle.push_back(_mesh.point(hv));
+            triangle.push_back(_mesh.property(_Q, hv));
         }
 
         // Calculate intersection
@@ -219,14 +226,7 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_opposit
         }
 
         auto p = vPos + r * n;
-        Eigen::Vector3d pD = p.unaryExpr([](mpq_class x) { return x.get_d(); });
-        // Calculate baricentric coordinates
-        auto A = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]).norm() / 2;
-        auto Aa = (triangle[0] - pD).cross(triangle[1] - pD).norm() / 2;
-        auto Ab = (triangle[1] - pD).cross(triangle[2] - pD).norm() / 2;
-        auto Ac = (triangle[0] - pD).cross(triangle[2] - pD).norm() / 2;
-
-        if (Aa / A + Ab / A + Ac / A != 1) {
+        if (!point_in_triangle(p, triangle[0], triangle[1], triangle[2])) {
             continue;
         }
 
@@ -480,6 +480,19 @@ bool StarDecompositionBoundary::add_halfface(std::set<Halfface>& cmpHf, Halfface
     return new_center_valid;
 }
 */
+
+bool StarDecompositionBoundary::point_in_triangle(Vector3q p, Vector3q v0, Vector3q v1, Vector3q v2) {
+    // Calculate baricentric coordinates
+    double A = (v1 - v0).cross(v2 - v0).unaryExpr([](mpq_class x) { return x.get_d(); }).norm() / 2;
+    double Aa = (v0 - p).cross(v1 - p).unaryExpr([](mpq_class x) { return x.get_d(); }).norm() / 2;
+    double Ab = (v1 - p).cross(v2 - p).unaryExpr([](mpq_class x) { return x.get_d(); }).norm() / 2;
+    double Ac = (v0 - p).cross(v2 - p).unaryExpr([](mpq_class x) { return x.get_d(); }).norm() / 2;
+
+    double barycenter = (Aa / A + Ab / A + Ac / A);
+    double eps = std::ldexp(std::numeric_limits<double>::epsilon(), 2);
+
+    return barycenter > 1 - eps && barycenter < 1 + eps;
+}
 
 bool StarDecompositionBoundary::has_valid_center(Mesh mesh) {
     std::vector<Eigen::Vector3d> positions;
