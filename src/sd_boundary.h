@@ -23,13 +23,13 @@ private:
   // std::vector<Halfface> _boundary;
   void run();
 
-  bool has_valid_center(Mesh mesh);
+  bool has_valid_center(Mesh& mesh);
 
   // Global component meshes
   std::vector<Mesh> _cmpMeshes;
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
   Mesh add_component(OpenMesh::FaceHandle startF);
-  bool add_hf_to_cmp(int cmp, OpenMesh::FaceHandle hf);
+  bool add_hf_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& hf);
   bool point_in_triangle(Vector3q p, Vector3q v0, Vector3q v1, Vector3q v2);
   std::pair<OpenMesh::FaceHandle, Vector3q> get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle& hf);
   // OpenMesh::FaceHandle check_intersecting(OpenMesh::FaceHandle hf);
