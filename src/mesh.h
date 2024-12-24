@@ -15,6 +15,10 @@ struct MyTraits : public OpenMesh::DefaultTraits
   // use face normals
   FaceAttributes(OpenMesh::Attributes::Normal | OpenMesh::Attributes::Status);
 
+  HalfedgeAttributes(OpenMesh::Attributes::Status);
+
+  EdgeAttributes(OpenMesh::Attributes::Status);
+
   VertexAttributes(OpenMesh::Attributes::Status);
 
   VertexTraits {

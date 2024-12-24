@@ -3,6 +3,7 @@
 #include "mesh.h"
 #include "volume_mesh.h"
 #include "vectorq.h"
+#include <utility>
 
 class StarDecompositionBoundary {
 public:
@@ -26,6 +27,7 @@ private:
   bool has_valid_center(Mesh& mesh);
 
   // Global component meshes
+  std::pair<OpenMesh::FaceHandle, OpenMesh::VertexHandle> _cmpFixV;
   std::vector<Mesh> _cmpMeshes;
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
   Mesh add_component(OpenMesh::FaceHandle startF);
