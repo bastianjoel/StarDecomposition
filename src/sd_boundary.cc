@@ -144,7 +144,7 @@ Mesh StarDecompositionBoundary::add_component(OpenMesh::FaceHandle startF) {
         auto point = opposite.second;
         auto newVertex = mesh.add_vertex(Mesh::Point(point[0].get_d(), point[1].get_d(), point[2].get_d()));
         mesh.data(newVertex).set_point_q(point);
-        _cmpFixV = std::make_pair(face, newVertex);
+        _cmpFixV = std::make_pair(opposite.first, newVertex);
         for (auto he : mesh.fh_range(face)) {
             auto ohe = mesh.opposite_halfedge_handle(he);
             auto of = mesh.add_face(mesh.from_vertex_handle(ohe), mesh.to_vertex_handle(ohe), newVertex);
