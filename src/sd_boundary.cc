@@ -73,16 +73,16 @@ void StarDecompositionBoundary::run() {
 
         add_component(h);
 
-        std::stack<OpenMesh::FaceHandle> candidates;
+        std::deque<OpenMesh::FaceHandle> candidates;
         for (auto he : _mesh.fh_range(h)) {
             auto oFace = _mesh.opposite_face_handle(he);
             if (oFace.is_valid()) {
-                candidates.push(oFace);
+                candidates.push_back(oFace);
             }
         }
         while (!candidates.empty()) {
-            auto nextH = candidates.top();
-            candidates.pop();
+            auto nextH = candidates.front();
+            candidates.pop_front();
             if (_mesh.property(_cmp, nextH) != cmpNotSetIdx) {
                 continue;
             }
@@ -102,8 +102,37 @@ void StarDecompositionBoundary::run() {
             for (auto he : _mesh.fh_range(nextH)) {
                 auto oFace = _mesh.opposite_face_handle(he);
                 if (oFace.is_valid() && _mesh.property(_cmp, oFace) == cmpNotSetIdx) {
-                    candidates.push(oFace);
+                    // Check if face can be added between to existing faces
+                    bool between = false;
+                    for (auto fh : _mesh.fh_range(oFace)) {
+                        auto hv = _mesh.from_vertex_handle(fh);
+                        auto hvTo = _mesh.to_vertex_handle(fh);
+                        if (fh != he && _cmpVertexMap[hv].is_valid() && _cmpVertexMap[hvTo].is_valid()) {
+                            auto h = _cmpMeshes[_cmpIdx].find_halfedge(_cmpVertexMap[hv], _cmpVertexMap[hvTo]);
+                            if (h.is_valid()) {
+                                between = true;
+                            }
+                            break;
+                        }
+                    }
+
+                    // Prefer faces that can be added between
+                    if (between) {
+                        candidates.push_front(oFace);
+                    } else {
+                        candidates.push_back(oFace);
+                    }
                 }
+            }
+        }
+
+        _cmpMeshes[_cmpIdx].garbage_collection();
+        {
+            char buffer[100];
+            std::sprintf(buffer, "debug/cmp_%d.obj", _cmpIdx);
+            if (!OpenMesh::IO::write_mesh(_cmpMeshes[_cmpIdx], buffer)) {
+                std::cerr << "write error\n";
+                exit(1);
             }
         }
         std::cout << "Cmp " << _cmpIdx << " amount faces: " << _cmpMeshes[_cmpIdx].faces().to_vector().size() << std::endl;
