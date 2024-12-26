@@ -87,12 +87,6 @@ void StarDecompositionBoundary::run() {
                 continue;
             }
 
-            if (nextH == _cmpFixV.first) {
-                // TODO: Handle fixpoint face reached
-                std::cout << "--- Reached fixpoint ---" << std::endl;
-                continue;
-            }
-
             if (!add_hf_to_cmp(_cmpMeshes[_cmpIdx], nextH)) {
                 queue.push(nextH);
                 continue;
@@ -206,11 +200,11 @@ bool StarDecompositionBoundary::add_hf_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& 
     // TODO: Connect open boundaries to the component
     // TODO: Check if opposite faces should be expanded
     OpenMesh::VertexHandle newHfVertex;
-    OpenMesh::HalfedgeHandle freeHalfedge;
     std::vector<OpenMesh::VertexHandle> triangle;
-    std::vector<OpenMesh::FaceHandle> addedFaces;
-    std::vector<std::vector<OpenMesh::VertexHandle>> deletedFaces;
+    int deletedHelperFaces = 0;
     OpenMesh::VertexHandle fixedVertex = _cmpFixV.second;
+    TxDeleteMesh txMesh(mesh);
+
     for (auto fh : _mesh.fh_range(hf)) {
         auto hv = _mesh.from_vertex_handle(fh);
         auto hvTo = _mesh.to_vertex_handle(fh);
@@ -218,12 +212,8 @@ bool StarDecompositionBoundary::add_hf_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& 
             auto h = mesh.find_halfedge(_cmpVertexMap[hv], _cmpVertexMap[hvTo]);
             if (h.is_valid()) {
                 auto f = mesh.face_handle(h);
-                std::vector<OpenMesh::VertexHandle> dTri;
-                for (auto v : mesh.fv_range(f)) {
-                    dTri.push_back(v);
-                }
-                deletedFaces.push_back(dTri);
-                mesh.delete_face(f, true);
+                txMesh.delete_face(f);
+                deletedHelperFaces++;
             }
         }
     }
@@ -241,44 +231,58 @@ bool StarDecompositionBoundary::add_hf_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& 
         triangle.push_back(_cmpVertexMap[hv]);
     }
 
-    bool hasValidCenter = false;
-    if (deletedFaces.size() != 0 && (deletedFaces.size() != 1 || newHfVertex.is_valid())) {
-        OpenMesh::FaceHandle face = mesh.add_face(triangle);
-        mesh.set_normal(face, _mesh.data(hf).normal_q().unaryExpr([](mpq_class x) { return x.get_d(); }));
-        addedFaces.push_back(face);
-        for (auto fh : mesh.fh_range(face)) {
-            if (mesh.opposite_halfedge_handle(fh).is_boundary()) {
-                auto f = mesh.add_face(mesh.to_vertex_handle(fh), mesh.from_vertex_handle(fh), fixedVertex);
-                mesh.set_normal(f, mesh.calc_normal(f));
-                addedFaces.push_back(f);
+    bool shouldCheck = false;
+    /*if (hf == _cmpFixV.first && newHfVertex.is_valid()) {
+        for (auto vf : mesh.vf_range(fixedVertex)) {
+            std::vector<OpenMesh::VertexHandle> aTri;
+            for (auto v : mesh.fv_range(vf)) {
+                if (v == fixedVertex) {
+                    aTri.push_back(_cmpVertexMap[newHfVertex]);
+                } else {
+                    aTri.push_back(v);
+                }
+            }
+            txMesh.delete_face(vf);
+
+            OpenMesh::FaceHandle face = mesh.add_face(aTri);
+            mesh.set_normal(face, mesh.calc_normal(face));
+            if (mesh.status(fixedVertex).deleted()) {
+                break;
             }
         }
-        hasValidCenter = has_valid_center(mesh);
+
+        OpenMesh::FaceHandle face = txMesh.add_face(triangle);
+        mesh.set_normal(face, _mesh.data(hf).normal_q().unaryExpr([](mpq_class x) { return x.get_d(); }));
+    } else */if (deletedHelperFaces != 0 && (deletedHelperFaces != 1 || newHfVertex.is_valid())) {
+        OpenMesh::FaceHandle face = txMesh.add_face(triangle);
+        mesh.set_normal(face, _mesh.data(hf).normal_q().unaryExpr([](mpq_class x) { return x.get_d(); }));
+        for (auto fh : mesh.fh_range(face)) {
+            if (mesh.opposite_halfedge_handle(fh).is_boundary()) {
+                auto f = txMesh.add_face(mesh.to_vertex_handle(fh), mesh.from_vertex_handle(fh), fixedVertex);
+                mesh.set_normal(f, mesh.calc_normal(f));
+            }
+        }
+        shouldCheck = true;
     }
 
-    if (!hasValidCenter) {
+    if (!shouldCheck || !has_valid_center(mesh) || hf == _cmpFixV.first) {
         if (newHfVertex.is_valid()) {
             _cmpVertexMap.erase(newHfVertex);
         }
 
-        for (auto f : addedFaces) {
-            mesh.delete_face(f, true);
-        }
+        txMesh.revert();
 
-        for (auto triangle : deletedFaces) {
-            auto nF = mesh.add_face(triangle);
-            mesh.set_normal(nF, mesh.calc_normal(nF));
-        }
-    }
+        return false;
+    }/* else if (hf == _cmpFixV.first) {
+        _cmpFixV = std::make_pair(OpenMesh::FaceHandle(), _cmpVertexMap[newHfVertex]);
+    }*/
 
-    return hasValidCenter;
+
+    return true;
 }
 
 std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle& origin) {
-    auto v0 = mesh.to_vertex_handle(mesh.halfedge_handle(origin));
-    auto v1 = mesh.to_vertex_handle(mesh.next_halfedge_handle(mesh.halfedge_handle(origin)));
-    auto v2 = mesh.to_vertex_handle(mesh.next_halfedge_handle(mesh.next_halfedge_handle(mesh.halfedge_handle(origin))));
-    Vector3q vPos = (mesh.data(v0).point_q() + mesh.data(v1).point_q() + mesh.data(v2).point_q()) / 3;
+    Vector3q vPos = get_face_center(mesh, origin);
     auto n = mesh.data(origin).normal_q();
 
     double distResult = -1;
@@ -372,6 +376,14 @@ bool StarDecompositionBoundary::has_valid_center(Mesh& mesh) {
     }
 
     return true;
+}
+
+Vector3q StarDecompositionBoundary::get_face_center(Mesh& mesh, OpenMesh::FaceHandle& hf) {
+    auto v0 = mesh.to_vertex_handle(mesh.halfedge_handle(hf));
+    auto v1 = mesh.to_vertex_handle(mesh.next_halfedge_handle(mesh.halfedge_handle(hf)));
+    auto v2 = mesh.to_vertex_handle(mesh.next_halfedge_handle(mesh.next_halfedge_handle(mesh.halfedge_handle(hf))));
+
+    return (mesh.data(v0).point_q() + mesh.data(v1).point_q() + mesh.data(v2).point_q()) / 3;
 }
 
 /*
