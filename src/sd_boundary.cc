@@ -87,7 +87,7 @@ void StarDecompositionBoundary::run() {
                 continue;
             }
 
-            if (!add_hf_to_cmp(_cmpMeshes[_cmpIdx], nextH)) {
+            if (!add_face_to_cmp(_cmpMeshes[_cmpIdx], nextH)) {
                 queue.push(nextH);
                 continue;
             }
@@ -194,18 +194,18 @@ Mesh StarDecompositionBoundary::add_component(OpenMesh::FaceHandle startF) {
  * 2. Face connects to an existing vertex
  *  In this case the face will be added to the mesh
  */
-bool StarDecompositionBoundary::add_hf_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& hf) {
+bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& newFace) {
     // TODO: Check which edge connects to the component
     // TODO: Use connecting edge to remove an temporary face
     // TODO: Connect open boundaries to the component
     // TODO: Check if opposite faces should be expanded
-    OpenMesh::VertexHandle newHfVertex;
+    OpenMesh::VertexHandle newFaceVertex;
     std::vector<OpenMesh::VertexHandle> triangle;
     int deletedHelperFaces = 0;
     OpenMesh::VertexHandle fixedVertex = _cmpFixV.second;
     TxDeleteMesh txMesh(mesh);
 
-    for (auto fh : _mesh.fh_range(hf)) {
+    for (auto fh : _mesh.fh_range(newFace)) {
         auto hv = _mesh.from_vertex_handle(fh);
         auto hvTo = _mesh.to_vertex_handle(fh);
         if (_cmpVertexMap[hv].is_valid() && _cmpVertexMap[hvTo].is_valid()) {
@@ -218,14 +218,14 @@ bool StarDecompositionBoundary::add_hf_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& 
         }
     }
 
-    for (auto fh : _mesh.fh_range(hf)) {
+    for (auto fh : _mesh.fh_range(newFace)) {
         auto hv = _mesh.from_vertex_handle(fh);
         if (!_cmpVertexMap[hv].is_valid()) {
             auto hvQ = _mesh.data(hv).point_q();
             auto newVertex = mesh.add_vertex(Mesh::Point(hvQ[0].get_d(), hvQ[1].get_d(), hvQ[2].get_d()));
             mesh.data(newVertex).set_point_q(hvQ);
             _cmpVertexMap[hv] = newVertex;
-            newHfVertex = hv;
+            newFaceVertex = hv;
         }
 
         triangle.push_back(_cmpVertexMap[hv]);
@@ -253,9 +253,9 @@ bool StarDecompositionBoundary::add_hf_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& 
 
         OpenMesh::FaceHandle face = txMesh.add_face(triangle);
         mesh.set_normal(face, _mesh.data(hf).normal_q().unaryExpr([](mpq_class x) { return x.get_d(); }));
-    } else */if (deletedHelperFaces != 0 && (deletedHelperFaces != 1 || newHfVertex.is_valid())) {
+    } else */if (deletedHelperFaces != 0 && (deletedHelperFaces != 1 || newFaceVertex.is_valid())) {
         OpenMesh::FaceHandle face = txMesh.add_face(triangle);
-        mesh.set_normal(face, _mesh.data(hf).normal_q().unaryExpr([](mpq_class x) { return x.get_d(); }));
+        mesh.set_normal(face, _mesh.data(newFace).normal_q().unaryExpr([](mpq_class x) { return x.get_d(); }));
         for (auto fh : mesh.fh_range(face)) {
             if (mesh.opposite_halfedge_handle(fh).is_boundary()) {
                 auto f = txMesh.add_face(mesh.to_vertex_handle(fh), mesh.from_vertex_handle(fh), fixedVertex);
@@ -265,9 +265,9 @@ bool StarDecompositionBoundary::add_hf_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& 
         shouldCheck = true;
     }
 
-    if (!shouldCheck || !has_valid_center(mesh) || hf == _cmpFixV.first) {
-        if (newHfVertex.is_valid()) {
-            _cmpVertexMap.erase(newHfVertex);
+    if (!shouldCheck || !has_valid_center(mesh) || newFace == _cmpFixV.first) {
+        if (newFaceVertex.is_valid()) {
+            _cmpVertexMap.erase(newFaceVertex);
         }
 
         txMesh.revert();
@@ -351,6 +351,10 @@ bool StarDecompositionBoundary::point_in_triangle(Vector3q p, Vector3q v0, Vecto
     }
 
     return true;
+}
+
+bool StarDecompositionBoundary::triangles_intersect(std::vector<Vector3q> t1, std::vector<Vector3q> t2) {
+    return tri_tri_intersect(t1[0], t1[1], t1[2], t2[0], t2[1], t2[2]);
 }
 
 bool StarDecompositionBoundary::has_valid_center(Mesh& mesh) {
