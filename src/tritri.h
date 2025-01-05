@@ -58,7 +58,7 @@
   else                                                  \
   {                                                     \
     /* triangles are coplanar */                        \
-    return coplanar_tri_tri(N1,V0,V1,V2,U0,U1,U2);      \
+    return 0/*coplanar_tri_tri(N1,V0,V1,V2,U0,U1,U2)*/; \
   }
 
 
@@ -165,10 +165,8 @@ inline bool coplanar_tri_tri(Vector3q& N, Vector3q& V0, Vector3q& V1, Vector3q& 
 }
 
 
-inline bool tri_tri_intersect(Vector3q& V0, Vector3q& V1, Vector3q& V2, Vector3q& U0, Vector3q& U1, Vector3q& U2)
+inline bool tri_tri_intersect(Vector3q& V0, Vector3q& V1, Vector3q& V2, Vector3q& N1, Vector3q& U0, Vector3q& U1, Vector3q& U2, Vector3q& N2)
 {
-  Vector3q E1, E2;
-  Vector3q N1, N2;
   mpq_class d1, d2;
   mpq_class du0, du1, du2, dv0, dv1, dv2;
   Vector3q D;
@@ -180,9 +178,6 @@ inline bool tri_tri_intersect(Vector3q& V0, Vector3q& V1, Vector3q& V2, Vector3q
   mpq_class b,c,max;
 
   /* compute plane equation of triangle(V0,V1,V2) */
-  E1 = V1 - V0;
-  E2 = V2 - V0;
-  N1 = E1.cross(E2);
   d1 = -N1.dot(V0);
   /* plane equation 1: N1.X+d1=0 */
 
@@ -198,9 +193,6 @@ inline bool tri_tri_intersect(Vector3q& V0, Vector3q& V1, Vector3q& V2, Vector3q
     return 0;                    /* no intersection occurs */
 
   /* compute plane of triangle (U0,U1,U2) */
-  E1 = U1 - U0;
-  E2 = U2 - U0;
-  N2 = E1.cross(E2);
   d2 = -N2.dot(U0);
   /* plane equation 2: N2.X+d2=0 */
 
@@ -246,5 +238,19 @@ inline bool tri_tri_intersect(Vector3q& V0, Vector3q& V1, Vector3q& V2, Vector3q
 
   if(isect1[1]<isect2[0] || isect2[1]<isect1[0]) return 0;
   return 1;
+}
+
+inline bool tri_tri_intersect(Vector3q& V0, Vector3q& V1, Vector3q& V2, Vector3q& U0, Vector3q& U1, Vector3q& U2)
+{
+  Vector3q E1, E2;
+  Vector3q N1, N2;
+  E1 = V1 - V0;
+  E2 = V2 - V0;
+  N1 = E1.cross(E2);
+
+  E1 = U1 - U0;
+  E2 = U2 - U0;
+  N2 = E1.cross(E2);
+  return tri_tri_intersect(V0, V1, V2, N1, U0, U1, U2, N2);
 }
 
