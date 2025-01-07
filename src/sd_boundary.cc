@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <map>
-#include <queue>
+#include <deque>
 #include <OpenMesh/Core/IO/MeshIO.hh>
 
 const int cmpNotSetIdx = -1;
@@ -247,6 +247,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
     int deletedHelperFaces = 0;
     OpenMesh::VertexHandle fixedVertex = _cmpFixV.second;
     TxDeleteMesh txMesh(mesh);
+    std::vector<OpenMesh::VertexHandle> originalVertices;
 
     for (auto fh : _mesh.fh_range(newFace)) {
         auto hv = _mesh.from_vertex_handle(fh);
@@ -271,6 +272,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
             newFaceVertex = hv;
         }
 
+        originalVertices.push_back(hv);
         triangle.push_back(_cmpVertexMap[hv]);
     }
 
@@ -306,8 +308,8 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
                 auto v1 = mesh.from_vertex_handle(fh);
                 auto v2 = fixedVertex;
                 std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), mesh.data(v2).point_q() };
-                if (triangles_intersect(t)) {
-                    std::cout << "Illegal triangle" << std::endl;
+                if (triangles_intersect(t, originalVertices)) {
+                    std::cout << "Illegal triangle: " << newFace.idx() << std::endl;
                     illegalTriangle = true;
                     break;
                 }
@@ -320,7 +322,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
     }
 
     std::pair<bool, Vector3q> cmpCenter;
-    if (shouldCheck) {
+    if (shouldCheck && !illegalTriangle) {
         cmpCenter = has_valid_center(mesh);
     }
 
@@ -410,7 +412,7 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_fix_ver
     auto nominator = faceNormal.transpose() * vPos - c;
     auto denominator = faceNormal.transpose() * n;
     auto r = (-nominator / denominator)[0];
-    Vector3q p = vPos + r * n * 0.8;
+    Vector3q p = vPos + r * n * 0.9;
 
     bool intersects;
     do {
@@ -419,11 +421,11 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_fix_ver
             auto v0 = mesh.to_vertex_handle(fh);
             auto v1 = mesh.from_vertex_handle(fh);
             std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), p };
-            if (triangles_intersect(t)) {
+            if (triangles_intersect(t, { v0, v1 })) {
                 intersects = true;
                 r /= 2;
                 p = vPos + r * n;
-                std::cout << "Intersects" << std::endl;
+                std::cout << "Intersects (try add): " << hf.idx() << " | " << mesh.opposite_face_handle(fh).idx() << std::endl;
                 break;
             }
         }
@@ -450,15 +452,51 @@ bool StarDecompositionBoundary::point_in_triangle(Vector3q p, Vector3q v0, Vecto
     return true;
 }
 
-bool StarDecompositionBoundary::triangles_intersect(std::vector<Vector3q> t) {
+bool StarDecompositionBoundary::triangles_intersect(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> borderVertices) {
     Vector3q n = (t[1] - t[0]).cross(t[2] - t[0]);
     for (auto face : _mesh.faces()) {
-        auto v0 = _mesh.data(_mesh.to_vertex_handle(_mesh.halfedge_handle(face))).point_q();
-        auto v1 = _mesh.data(_mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(face)))).point_q();
-        auto v2 = _mesh.data(_mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(face))))).point_q();
-        auto fNormal = _mesh.data(face).normal_q();
+        auto v0 = _mesh.to_vertex_handle(_mesh.halfedge_handle(face));
+        auto v1 = _mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(face)));
+        auto v2 = _mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(face))));
 
-        if (tri_tri_intersect(v0, v1, v2, fNormal, t[0], t[1], t[2], n)) {
+        bool shareV0 = false, shareV1 = false, shareV2 = false;
+        for (auto v : borderVertices) {
+            if (v == v0) {
+                shareV0 = true;
+            } else if (v == v1) {
+                shareV1 = true;
+            } else if (v == v2) {
+                shareV2 = true;
+            }
+        }
+        short sharedVertices = shareV0 + shareV1 + shareV2;
+
+        Vector3q fNormal = _mesh.data(face).normal_q();
+        Vector3q v0q = _mesh.data(v0).point_q();
+        Vector3q v1q = _mesh.data(v1).point_q();
+        Vector3q v2q = _mesh.data(v2).point_q();
+        if (shareV0 && shareV1) {
+            v0q = v0q + (v2q - v0q) * 1e-6;
+            v1q = v1q + (v2q - v1q) * 1e-6;
+        } else if (shareV0 && shareV2) {
+            v0q = v0q + (v1q - v0q) * 1e-6;
+            v2q = v2q + (v1q - v2q) * 1e-6;
+        } else if (shareV1 && shareV2) {
+            v1q = v1q + (v0q - v1q) * 1e-6;
+            v2q = v2q + (v0q - v2q) * 1e-6;
+        }
+
+        if ((sharedVertices == 2 || sharedVertices == 0) && tri_tri_intersect(t[0], t[1], t[2], n, v0q, v1q, v2q, fNormal)) {
+            if (sharedVertices) {
+                // std::cout << "v " << t[0][0].get_d() << " " << t[0][1].get_d() << " " << t[0][2].get_d() << std::endl;
+                // std::cout << "v " << t[1][0].get_d() << " " << t[1][1].get_d() << " " << t[1][2].get_d() << std::endl;
+                // std::cout << "v " << t[2][0].get_d() << " " << t[2][1].get_d() << " " << t[2][2].get_d() << std::endl;
+                // std::cout << "v " << v0q[0].get_d() << " " << v0q[1].get_d() << " " << v0q[2].get_d() << std::endl;
+                // std::cout << "v " << v1q[0].get_d() << " " << v1q[1].get_d() << " " << v1q[2].get_d() << std::endl;
+                // std::cout << "v " << v2q[0].get_d() << " " << v2q[1].get_d() << " " << v2q[2].get_d() << std::endl;
+                // std::cout << "Intersecting with shared: " << face.idx() << " " << sharedVertices << std::endl;
+                // exit(1);
+            }
             return true;
         }
     }

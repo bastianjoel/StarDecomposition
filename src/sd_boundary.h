@@ -34,10 +34,11 @@ private:
   Mesh add_component(OpenMesh::FaceHandle startF);
   bool add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& hf);
   bool point_in_triangle(Vector3q p, Vector3q v0, Vector3q v1, Vector3q v2);
-  bool triangles_intersect(std::vector<Vector3q> t);
   void apply_current_component();
   OpenMesh::FaceHandle get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle& hf);
   std::pair<OpenMesh::FaceHandle, Vector3q> get_fix_vertex_pos(Mesh& mesh, OpenMesh::FaceHandle& hf);
+
+  bool triangles_intersect(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> v);
 
   Vector3q get_face_center(Mesh& mesh, OpenMesh::FaceHandle& hf);
   // OpenMesh::FaceHandle check_intersecting(OpenMesh::FaceHandle hf);
