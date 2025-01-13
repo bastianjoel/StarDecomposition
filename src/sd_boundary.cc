@@ -1,6 +1,7 @@
 #include "sd_boundary.h"
 #include "lp.h"
 #include "tritri.h"
+#include "assertion.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <cmath>
 #include <cstdio>
@@ -59,9 +60,12 @@ std::vector<VolumeMesh> StarDecompositionBoundary::components() {
 }
 
 void StarDecompositionBoundary::run() {
+    srand(0);
+
     _cmpIdx = 0;
     while (_mesh.faces_empty() == false) {
-        OpenMesh::FaceHandle h = *_mesh.faces_begin();
+        // Add random face
+        OpenMesh::FaceHandle h = *(_mesh.faces_begin() + (rand() % _mesh.n_faces()));
         if (_mesh.property(_cmp, h) != cmpNotSetIdx) {
             continue;
         }
@@ -83,19 +87,32 @@ void StarDecompositionBoundary::run() {
                 candidates.push_back(oFace);
             }
         }
+
+        bool allowMove = true;
+        int cnt = 0;
         while (!candidates.empty()) {
             auto nextH = candidates.front();
             candidates.pop_front();
-            if (_mesh.property(_cmp, nextH) != cmpNotSetIdx || visited.find(nextH) != visited.end()) {
+            bool alreadyChecked = _mesh.property(_cmp, nextH) != cmpNotSetIdx || visited.find(nextH) != visited.end();
+            if (alreadyChecked || !add_face_to_cmp(_cmpMeshes[_cmpIdx], nextH)) {
+                visited.insert(nextH);
+                if (candidates.empty() && allowMove) {
+                    if (!move_fix_vertex(_cmpMeshes[_cmpIdx])) {
+                        break;
+                    }
+                    allowMove = false;
+                }
                 continue;
             }
 
-            if (!add_face_to_cmp(_cmpMeshes[_cmpIdx], nextH)) {
-                visited.insert(nextH);
-                continue;
+            cnt++;
+            if (cnt > 3) {
+                move_fix_vertex(_cmpMeshes[_cmpIdx]);
+                cnt = 0;
             }
 
             visited = std::set<OpenMesh::FaceHandle>();
+            // allowMove = true;
             _mesh.property(_cmp, nextH) = _cmpIdx;
             for (auto he : _mesh.fh_range(nextH)) {
                 auto oFace = _mesh.opposite_face_handle(he);
@@ -141,15 +158,25 @@ void StarDecompositionBoundary::run() {
                 numCmpFaces++;
             }
         }
-        std::cout << "Cmp " << _cmpIdx << " amount faces: " << _cmpMeshes[_cmpIdx].faces().to_vector().size() << " full mesh size: " << (-numCmpFaces + (numCmpFacesTotal - numCmpFaces)) << std::endl;
-        apply_current_component();
-        {
-            char buffer[100];
-            std::sprintf(buffer, "debug/_original_%d.obj", _cmpIdx);
-            if (!OpenMesh::IO::write_mesh(_mesh, buffer)) {
-                std::cerr << "write error\n";
-                exit(1);
+        if ((-numCmpFaces + (numCmpFacesTotal - numCmpFaces)) < 0) {
+            std::cout << "Cmp " << _cmpIdx << " amount faces: " << _cmpMeshes[_cmpIdx].faces().to_vector().size() << " full mesh size: " << (-numCmpFaces + (numCmpFacesTotal - numCmpFaces)) << std::endl;
+            apply_current_component();
+            {
+                char buffer[100];
+                std::sprintf(buffer, "debug/_original_%d.obj", _cmpIdx);
+                if (!OpenMesh::IO::write_mesh(_mesh, buffer)) {
+                    std::cerr << "write error\n";
+                    exit(1);
+                }
             }
+        } else {
+            for (auto f : _mesh.faces()) {
+                if (_mesh.property(_cmp, f) == _cmpIdx) {
+                    _mesh.property(_cmp, f) = cmpNotSetIdx;
+                }
+            }
+
+            _cmpMeshes.pop_back();
         }
     }
 
@@ -191,6 +218,62 @@ void StarDecompositionBoundary::apply_current_component() {
     _mesh.garbage_collection();
 }
 
+bool StarDecompositionBoundary::move_fix_vertex(Mesh& mesh) {
+    // TODO: Move fix vertex into the direction of the vertex normal
+    auto opposite = get_opposite_face(mesh, _cmpFixV.second);
+    if (!opposite.is_valid()) {
+        std::cout << "Opposite face not found" << std::endl;
+        return false;
+    }
+
+    Vector3q vPos = mesh.data(_cmpFixV.second).point_q();
+    auto n = -mesh.calc_normal(_cmpFixV.second).cast<mpq_class>();
+    auto faceNormal = _mesh.data(opposite).normal_q();
+
+    // Calculate intersection
+    auto c = faceNormal.transpose() * _mesh.data(_mesh.to_vertex_handle(_mesh.halfedge_handle(opposite))).point_q();
+    auto nominator = faceNormal.transpose() * vPos - c;
+    auto denominator = faceNormal.transpose() * n;
+    auto r = (-nominator / denominator)[0];
+    Vector3q p = vPos + r * n;
+
+    p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
+    for (int i = 0; i < 10; i++) {
+        // TODO: Check if vertex move was possible without intersections
+        bool intersects = false;
+        for (auto vf : mesh.vf_range(_cmpFixV.second)) {
+            std::vector<OpenMesh::VertexHandle> vertices;
+            for (auto v : mesh.fv_range(vf)) {
+                if (v != _cmpFixV.second) {
+                    vertices.push_back(v);
+                }
+            }
+            std::vector<Vector3q> t = { mesh.data(vertices[0]).point_q(), mesh.data(vertices[1]).point_q(), p };
+            if (triangles_intersect(t, { vertices[0], vertices[1] })) {
+                r /= 2;
+                p = vPos + r * n;
+                intersects = true;
+                break;
+            }
+        }
+
+        if (!intersects) {
+            std::cout << "Enlarged" << std::endl;
+            _cmpFixV.first = opposite;
+            mesh.data(_cmpFixV.second).set_point_q(p);
+            mesh.set_point(_cmpFixV.second, p.unaryExpr([](mpq_class x) { return x.get_d(); }));
+
+            return true;
+        }
+    }
+
+
+    mesh.data(_cmpFixV.second).set_point_q(vPos);
+    mesh.set_point(_cmpFixV.second, vPos.unaryExpr([](mpq_class x) { return x.get_d(); }));
+
+    return false;
+}
+
 Mesh StarDecompositionBoundary::add_component(OpenMesh::FaceHandle startF) {
     _cmpVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
 
@@ -208,7 +291,6 @@ Mesh StarDecompositionBoundary::add_component(OpenMesh::FaceHandle startF) {
     mesh.set_normal(face, _mesh.data(startF).normal_q().unaryExpr([](mpq_class x) { return x.get_d(); }));
     mesh.data(face).set_normal_q(_mesh.data(startF).normal_q());
 
-    // TODO: Check if added faces cut any faces in the original mesh
     auto opposite = get_fix_vertex_pos(_mesh, startF);
     if (opposite.first.is_valid()) {
         auto point = opposite.second;
@@ -257,7 +339,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
     int deletedHelperFaces = 0;
     OpenMesh::VertexHandle fixedVertex = _cmpFixV.second;
     TxDeleteMesh txMesh(mesh);
-    std::vector<OpenMesh::VertexHandle> originalVertices;
+    std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> originalVertices;
 
     for (auto fh : _mesh.fh_range(newFace)) {
         auto hv = _mesh.from_vertex_handle(fh);
@@ -282,7 +364,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
             newFaceVertex = hv;
         }
 
-        originalVertices.push_back(hv);
+        originalVertices[_cmpVertexMap[hv]] = hv;
         triangle.push_back(_cmpVertexMap[hv]);
     }
 
@@ -360,7 +442,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
                 auto v1 = mesh.from_vertex_handle(fh);
                 auto v2 = fixedVertex;
                 std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), mesh.data(v2).point_q() };
-                if (triangles_intersect(t, originalVertices)) {
+                if (triangles_intersect(t, { originalVertices[v0], originalVertices[v1] })) {
                     std::cout << "Illegal triangle: " << newFace.idx() << std::endl;
                     illegalTriangle = true;
                     break;
@@ -403,31 +485,38 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
 
 OpenMesh::FaceHandle StarDecompositionBoundary::get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle& origin) {
     Vector3q vPos = get_face_center(mesh, origin);
-    auto n = mesh.data(origin).normal_q();
+    Vector3q n = mesh.data(origin).normal_q();
 
+    return get_opposite_face(vPos, n);
+}
+
+OpenMesh::FaceHandle StarDecompositionBoundary::get_opposite_face(Mesh& mesh, OpenMesh::VertexHandle& origin) {
+    Vector3q vPos = mesh.data(origin).point_q();
+    auto n = -mesh.calc_normal(origin);
+
+    return get_opposite_face(vPos, n.cast<mpq_class>());
+}
+
+OpenMesh::FaceHandle StarDecompositionBoundary::get_opposite_face(Vector3q vPos, Vector3q n) {
     double distResult = -1;
     Vector3q pResult;
     OpenMesh::FaceHandle opposite;
 
     // Find cutting boundary face
-    for (auto f : mesh.faces()) {
-        if (f == origin) {
-            continue;
-        }
-
-        auto faceNormal = mesh.data(f).normal_q();
+    for (auto f : _mesh.faces()) {
+        auto faceNormal = _mesh.data(f).normal_q();
         auto div = faceNormal.transpose() * n;
         if (div[0] == 0) {
             continue;
         }
 
         std::vector<Vector3q> triangle;
-        for (auto hv : mesh.fv_range(f)) {
-            triangle.push_back(mesh.data(hv).point_q());
+        for (auto hv : _mesh.fv_range(f)) {
+            triangle.push_back(_mesh.data(hv).point_q());
         }
 
         // Calculate intersection
-        auto c = faceNormal.transpose() * mesh.data(mesh.to_vertex_handle(mesh.halfedge_handle(f))).point_q();
+        auto c = faceNormal.transpose() * _mesh.data(_mesh.to_vertex_handle(_mesh.halfedge_handle(f))).point_q();
         auto nominator = faceNormal.transpose() * vPos - c;
         auto denominator = faceNormal.transpose() * n;
         auto r = (-nominator / denominator)[0];
@@ -470,7 +559,8 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_fix_ver
     auto nominator = faceNormal.transpose() * vPos - c;
     auto denominator = faceNormal.transpose() * n;
     auto r = (-nominator / denominator)[0];
-    Vector3q p = vPos + r * n * 0.5;
+    r = r / 2;
+    Vector3q p = vPos + r * n;
 
     bool intersects;
     do {
@@ -484,14 +574,14 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_fix_ver
                 r /= 2;
                 p = vPos + r * n;
                 std::cout << "Intersects (try add): " << hf.idx() << " | " << mesh.opposite_face_handle(fh).idx() << std::endl;
+                ASSERT(r > 1e-6 || r < -1e-6);
                 break;
             }
         }
     } while (intersects);
 
-    // TODO: Check if there is a way to make this woraround unnecessary
+    // TODO: Check if there is a way to make this workaround unnecessary
     p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
-    auto u = mesh.data(mesh.to_vertex_handle(mesh.halfedge_handle(opposite))).point_q();
 
     return std::make_pair(opposite, p);
 }
@@ -521,6 +611,7 @@ bool StarDecompositionBoundary::triangles_intersect(std::vector<Vector3q> t, std
         auto v1 = _mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(face)));
         auto v2 = _mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(face))));
 
+        // Move connecting vertices slightly to avoid intersection
         bool shareV0 = false, shareV1 = false, shareV2 = false;
         for (auto v : borderVertices) {
             if (v == v0) {
@@ -532,12 +623,12 @@ bool StarDecompositionBoundary::triangles_intersect(std::vector<Vector3q> t, std
             }
         }
         short sharedVertices = shareV0 + shareV1 + shareV2;
+        ASSERT(sharedVertices < 3);
 
         Vector3q fNormal = _mesh.data(face).normal_q();
         Vector3q v0q = _mesh.data(v0).point_q();
         Vector3q v1q = _mesh.data(v1).point_q();
         Vector3q v2q = _mesh.data(v2).point_q();
-
         if (shareV0 && shareV1) {
             v0q = v0q + (v2q - v0q) * 1e-6;
             v1q = v1q + (v2q - v1q) * 1e-6;
@@ -555,25 +646,7 @@ bool StarDecompositionBoundary::triangles_intersect(std::vector<Vector3q> t, std
             v2q = v2q + (v1q - v2q) * 1e-6 + (v0q - v2q) * 1e-6;
         }
 
-        // TODO: Assert that sharedVertices = 3 is not allowed
-        if (sharedVertices == 3) {
-            return false;
-        }
-
         if (tri_tri_intersect(t[0], t[1], t[2], n, v0q, v1q, v2q, fNormal)) {
-            if (sharedVertices == 1) {
-                // std::cout << "v " << t[0][0].get_d() << " " << t[0][1].get_d() << " " << t[0][2].get_d() << std::endl;
-                // std::cout << "v " << t[1][0].get_d() << " " << t[1][1].get_d() << " " << t[1][2].get_d() << std::endl;
-                // std::cout << "v " << t[2][0].get_d() << " " << t[2][1].get_d() << " " << t[2][2].get_d() << std::endl;
-                // std::cout << "v " << v0q[0].get_d() << " " << v0q[1].get_d() << " " << v0q[2].get_d() << std::endl;
-                // std::cout << "v " << v1q[0].get_d() << " " << v1q[1].get_d() << " " << v1q[2].get_d() << std::endl;
-                // std::cout << "v " << v2q[0].get_d() << " " << v2q[1].get_d() << " " << v2q[2].get_d() << std::endl;
-                // std::cout << "v " << _mesh.data(v0).point_q()[0].get_d() << " " << _mesh.data(v0).point_q()[1].get_d() << " " << _mesh.data(v0).point_q()[2].get_d() << std::endl;
-                // std::cout << "v " << _mesh.data(v0).point_q()[0].get_d() << " " << _mesh.data(v0).point_q()[1].get_d() << " " << _mesh.data(v0).point_q()[2].get_d() << std::endl;
-                // std::cout << "v " << _mesh.data(v0).point_q()[0].get_d() << " " << _mesh.data(v0).point_q()[1].get_d() << " " << _mesh.data(v0).point_q()[2].get_d() << std::endl;
-                // std::cout << "Intersecting with shared: " << face.idx() << " " << sharedVertices << std::endl;
-                // exit(1);
-            }
             return true;
         }
     }
