@@ -66,6 +66,7 @@ void StarDecompositionBoundary::run() {
     while (_mesh.faces_empty() == false) {
         // Add random face
         OpenMesh::FaceHandle h = *(_mesh.faces_begin() + (rand() % _mesh.n_faces()));
+        // OpenMesh::FaceHandle h = *_mesh.faces_begin();
         if (_mesh.property(_cmp, h) != cmpNotSetIdx) {
             continue;
         }
@@ -89,7 +90,6 @@ void StarDecompositionBoundary::run() {
         }
 
         bool allowMove = true;
-        int cnt = 0;
         while (!candidates.empty()) {
             auto nextH = candidates.front();
             candidates.pop_front();
@@ -100,19 +100,28 @@ void StarDecompositionBoundary::run() {
                     if (!move_fix_vertex(_cmpMeshes[_cmpIdx])) {
                         break;
                     }
+
+                    for (auto f : _cmpMeshes[_cmpIdx].vf_range(_cmpFixV.second)) {
+                        auto he = _cmpMeshes[_cmpIdx].halfedge_handle(f);
+                        for (auto fhe : _cmpMeshes[_cmpIdx].fh_range(f)) {
+                            auto fromV = _cmpMeshes[_cmpIdx].from_vertex_handle(fhe);
+                            auto toV = _cmpMeshes[_cmpIdx].to_vertex_handle(fhe);
+                            if (fromV == _cmpFixV.second || toV == _cmpFixV.second) {
+                                continue;
+                            }
+
+                            auto mH = _mesh.find_halfedge(_meshVertexMap[fromV], _meshVertexMap[toV]);
+                            candidates.push_back(_mesh.face_handle(mH));
+                        }
+                    }
+                    visited.clear();
                     allowMove = false;
                 }
                 continue;
             }
 
-            cnt++;
-            if (cnt > 3) {
-                move_fix_vertex(_cmpMeshes[_cmpIdx]);
-                cnt = 0;
-            }
-
-            visited = std::set<OpenMesh::FaceHandle>();
-            // allowMove = true;
+            visited.clear();
+            allowMove = true;
             _mesh.property(_cmp, nextH) = _cmpIdx;
             for (auto he : _mesh.fh_range(nextH)) {
                 auto oFace = _mesh.opposite_face_handle(he);
@@ -215,6 +224,7 @@ void StarDecompositionBoundary::apply_current_component() {
         }
     }
 
+    _mesh.delete_isolated_vertices();
     _mesh.garbage_collection();
 }
 
@@ -235,10 +245,11 @@ bool StarDecompositionBoundary::move_fix_vertex(Mesh& mesh) {
     auto nominator = faceNormal.transpose() * vPos - c;
     auto denominator = faceNormal.transpose() * n;
     auto r = (-nominator / denominator)[0];
+    r /= 2;
     Vector3q p = vPos + r * n;
 
     p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 3; i++) {
         // TODO: Check if vertex move was possible without intersections
         bool intersects = false;
         for (auto vf : mesh.vf_range(_cmpFixV.second)) {
@@ -249,16 +260,16 @@ bool StarDecompositionBoundary::move_fix_vertex(Mesh& mesh) {
                 }
             }
             std::vector<Vector3q> t = { mesh.data(vertices[0]).point_q(), mesh.data(vertices[1]).point_q(), p };
-            if (triangles_intersect(t, { vertices[0], vertices[1] })) {
+            if (triangles_intersect(t, { _meshVertexMap[vertices[0]], _meshVertexMap[vertices[1]] })) {
                 r /= 2;
                 p = vPos + r * n;
+                p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
                 intersects = true;
                 break;
             }
         }
 
         if (!intersects) {
-            std::cout << "Enlarged" << std::endl;
             _cmpFixV.first = opposite;
             mesh.data(_cmpFixV.second).set_point_q(p);
             mesh.set_point(_cmpFixV.second, p.unaryExpr([](mpq_class x) { return x.get_d(); }));
@@ -276,6 +287,7 @@ bool StarDecompositionBoundary::move_fix_vertex(Mesh& mesh) {
 
 Mesh StarDecompositionBoundary::add_component(OpenMesh::FaceHandle startF) {
     _cmpVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
+    _meshVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
 
     Mesh mesh;
     std::vector<OpenMesh::VertexHandle> newHfVertices;
@@ -284,6 +296,7 @@ Mesh StarDecompositionBoundary::add_component(OpenMesh::FaceHandle startF) {
         auto newVertex = mesh.add_vertex(Mesh::Point(hvQ[0].get_d(), hvQ[1].get_d(), hvQ[2].get_d()));
         mesh.data(newVertex).set_point_q(hvQ);
         _cmpVertexMap[hv] = newVertex;
+        _meshVertexMap[newVertex] = hv;
         newHfVertices.push_back(newVertex);
     }
 
@@ -339,7 +352,6 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
     int deletedHelperFaces = 0;
     OpenMesh::VertexHandle fixedVertex = _cmpFixV.second;
     TxDeleteMesh txMesh(mesh);
-    std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> originalVertices;
 
     for (auto fh : _mesh.fh_range(newFace)) {
         auto hv = _mesh.from_vertex_handle(fh);
@@ -361,10 +373,10 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
             auto newVertex = mesh.add_vertex(Mesh::Point(hvQ[0].get_d(), hvQ[1].get_d(), hvQ[2].get_d()));
             mesh.data(newVertex).set_point_q(hvQ);
             _cmpVertexMap[hv] = newVertex;
+            _meshVertexMap[newVertex] = hv;
             newFaceVertex = hv;
         }
 
-        originalVertices[_cmpVertexMap[hv]] = hv;
         triangle.push_back(_cmpVertexMap[hv]);
     }
 
@@ -442,7 +454,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
                 auto v1 = mesh.from_vertex_handle(fh);
                 auto v2 = fixedVertex;
                 std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), mesh.data(v2).point_q() };
-                if (triangles_intersect(t, { originalVertices[v0], originalVertices[v1] })) {
+                if (triangles_intersect(t, { _meshVertexMap[v0], _meshVertexMap[v1] })) {
                     std::cout << "Illegal triangle: " << newFace.idx() << std::endl;
                     illegalTriangle = true;
                     break;
@@ -468,6 +480,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
 
     if (illegalTriangle || !shouldCheck || !cmpCenter.first) {
         if (newFaceVertex.is_valid()) {
+            _meshVertexMap.erase(_cmpVertexMap[newFaceVertex]);
             _cmpVertexMap.erase(newFaceVertex);
         }
 
