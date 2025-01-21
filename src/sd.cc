@@ -52,3 +52,12 @@ std::vector<VolumeMesh> sd(VolumeMesh& N) {
 
     return components;
 }
+
+std::vector<VolumeMesh> sd(Mesh& N) {
+    std::cout << "Decompose" << std::endl;
+    // std::vector<Vector3q> centers = decompose(N);
+    StarDecompositionBoundary decomposer(N);
+    std::vector<Vector3q> centers = decomposer.centers();
+
+    return {};
+}

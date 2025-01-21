@@ -13,7 +13,7 @@ public:
   std::vector<VolumeMesh> components();
 private:
   bool _wasVolumeMesh;
-  VolumeMesh& _originalMesh;
+  VolumeMesh _originalMesh;
 
   Mesh _mesh = Mesh();
   bool _computed;

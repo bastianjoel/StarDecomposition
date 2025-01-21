@@ -1,3 +1,5 @@
+#include "OpenMesh/Core/IO/MeshIO.hh"
+#include "mesh.h"
 #include "retet.h"
 #include "sd.h"
 
@@ -73,6 +75,15 @@ int main(int argc, char** argv) {
     if (N_filename == "") {
         N_filename = path + SEP + "meshes" + SEP + "thumb.vtk";
     }
+
+    std::string extension = N_filename.substr(N_filename.rfind('.') + 1);
+    if (extension == "obj" || extension == "stl" || extension == "ply") {
+        Mesh mesh;
+        OpenMesh::IO::read_mesh(mesh, N_filename);
+        sd(mesh);
+        return -1;
+    }
+
     int orientation = 0;
     VolumeMesh N = read(N_filename, orientation);
 
