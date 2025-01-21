@@ -35,7 +35,6 @@ private:
   Mesh add_component(OpenMesh::FaceHandle startF);
   bool add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& hf);
   bool move_fix_vertex(Mesh& mesh);
-  bool point_in_triangle(Vector3q p, Vector3q v0, Vector3q v1, Vector3q v2);
   void apply_current_component();
   OpenMesh::FaceHandle get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle& origin);
   OpenMesh::FaceHandle get_opposite_face(Mesh& mesh, OpenMesh::VertexHandle& origin);
@@ -44,7 +43,6 @@ private:
 
   bool triangles_intersect(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> v);
 
-  Vector3q get_face_center(Mesh& mesh, OpenMesh::FaceHandle& hf);
   // OpenMesh::FaceHandle check_intersecting(OpenMesh::FaceHandle hf);
 
   // Direct add (experiment)
