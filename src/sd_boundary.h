@@ -30,11 +30,13 @@ private:
   // Global component meshes
   std::pair<OpenMesh::FaceHandle, OpenMesh::VertexHandle> _cmpFixV;
   std::vector<Mesh> _cmpMeshes;
+  Mesh* _currentCmp = nullptr;
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _meshVertexMap;
   Mesh add_component(OpenMesh::FaceHandle startF);
   bool add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& hf);
   bool move_fix_vertex(Mesh& mesh);
+  bool can_move_vertex_to(Mesh& mesh, OpenMesh::VertexHandle& v, const Vector3q& p);
   void apply_current_component();
   OpenMesh::FaceHandle get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle& origin);
   OpenMesh::FaceHandle get_opposite_face(Mesh& mesh, OpenMesh::VertexHandle& origin);

@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include "OpenMesh/Core/Mesh/Attributes.hh"
 #include "OpenMesh/Core/Mesh/Traits.hh"
+#include <Eigen/src/Core/Matrix.h>
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 #include <OpenMesh/Core/Geometry/EigenVectorT.hh>
 #include "vectorq.h"
@@ -70,6 +71,37 @@ public:
         }
 
         return true;
+    }
+
+    OpenMesh::SmartVertexHandle add_vertex_q(const Vector3q p) {
+        auto fixVertex = add_vertex(p.unaryExpr([](mpq_class x) { return x.get_d(); }));
+        data(fixVertex).set_point_q(p);
+
+        return fixVertex;
+    }
+
+    Vector3q update_normal_q(OpenMesh::FaceHandle fh) {
+        std::vector<Vector3q> triangle;
+        for (auto fv : fv_range(fh)) {
+            triangle.push_back(data(fv).point_q());
+        }
+        Vector3q n = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]);
+        set_normal_q(fh, n);
+
+        return n;
+    }
+
+    void set_normal_q(OpenMesh::FaceHandle fh, const Vector3q& n) {
+        data(fh).set_normal_q(n);
+        set_normal(fh, n.unaryExpr([](mpq_class x) { return x.get_d(); }));
+    }
+
+    void move(OpenMesh::VertexHandle vh, const Vector3q& p) {
+        data(vh).set_point_q(p);
+        set_point(vh, p.unaryExpr([](mpq_class x) { return x.get_d(); }));
+        for (auto f : vf_range(vh)) {
+            update_normal_q(f);
+        }
     }
 };
 
