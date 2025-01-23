@@ -9,6 +9,8 @@
 #include <deque>
 #include <OpenMesh/Core/IO/MeshIO.hh>
 
+#define FACE_SELECTION_ORDERED 1
+
 const int cmpNotSetIdx = -1;
 
 StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _computed(false), _wasVolumeMesh(false), _mesh(m) {
@@ -73,13 +75,14 @@ std::vector<VolumeMesh> StarDecompositionBoundary::components() {
 }
 
 void StarDecompositionBoundary::run() {
+#ifndef DEBUG
     srand(0);
+#endif
 
     _cmpIdx = 0;
     int startOffset = 0;
     while (_mesh.faces_empty() == false) {
-        // Add random face
-        // OpenMesh::FaceHandle h = *(_mesh.faces_begin() + (rand() % _mesh.n_faces()));
+#ifdef FACE_SELECTION_ORDERED
         auto nextFace = _mesh.faces_begin() + startOffset;
         if (nextFace == _mesh.faces_end()) {
             std::cout << "Decomposition failed" << std::endl;
@@ -89,6 +92,10 @@ void StarDecompositionBoundary::run() {
         if (_mesh.property(_cmp, h) != cmpNotSetIdx) {
             continue;
         }
+#else
+        // Add random face
+        OpenMesh::FaceHandle h = *(_mesh.faces_begin() + (rand() % _mesh.n_faces()));
+#endif
 
         add_component(h);
         if (has_valid_center(_mesh).first) {
@@ -215,7 +222,15 @@ void StarDecompositionBoundary::run() {
         }
     }
 
-    std::cout << "Num components: " << _cmpIdx << std::endl;
+    std::cout << "Num components: " << _cmpIdx + 1 << std::endl;
+    {
+        char buffer[100];
+        std::sprintf(buffer, "debug/cmp_%d.obj", _cmpIdx);
+        if (!OpenMesh::IO::write_mesh(*_currentCmp, buffer)) {
+            std::cerr << "write error\n";
+            exit(1);
+        }
+    }
 
     this->_computed = true;
     if (this->_wasVolumeMesh) {
@@ -229,8 +244,33 @@ void StarDecompositionBoundary::run() {
 
 void StarDecompositionBoundary::apply_current_component() {
     Mesh& cmpMesh = *_currentCmp;
-    auto fixVertex = _mesh.add_vertex_q(cmpMesh.data(_cmpFixV.second).point_q());
+    Vector3q openingCenter = Vector3q::Zero();
+    int numBoundaryVertices = 0;
+    for (auto f : cmpMesh.vf_range(_cmpFixV.second)) {
+        for (auto h : cmpMesh.fh_range(f)) {
+            auto to = cmpMesh.to_vertex_handle(h);
+            auto from = cmpMesh.to_vertex_handle(h);
+            if (to == _cmpFixV.second || from == _cmpFixV.second) {
+                continue;
+            }
 
+            openingCenter += cmpMesh.data(to).point_q();
+            numBoundaryVertices++;
+        }
+    }
+    openingCenter /= numBoundaryVertices;
+    for (int i = 0; i < 3; i++) {
+        mpq_class step = i / 4.0;
+        auto fixVertexPos = cmpMesh.data(_cmpFixV.second).point_q();
+        auto moveTo = openingCenter + step * (fixVertexPos - openingCenter);
+        if (can_move_vertex_to(cmpMesh, _cmpFixV.second, moveTo)) {
+            std::cout << "Improved fix vertex pos" << std::endl;
+            cmpMesh.move(_cmpFixV.second, moveTo);
+            break;
+        }
+    }
+
+    auto fixVertex = _mesh.add_vertex_q(cmpMesh.data(_cmpFixV.second).point_q());
     for (auto f : _mesh.faces()) {
         if (_mesh.property(_cmp, f) == _cmpIdx) {
             _mesh.delete_face(f, true);
