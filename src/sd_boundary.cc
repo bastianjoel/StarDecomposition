@@ -263,9 +263,8 @@ void StarDecompositionBoundary::apply_current_component() {
         mpq_class step = i / 4.0;
         auto fixVertexPos = cmpMesh.data(_cmpFixV.second).point_q();
         auto moveTo = openingCenter + step * (fixVertexPos - openingCenter);
-        if (can_move_vertex_to(cmpMesh, _cmpFixV.second, moveTo)) {
+        if (move_vertex_to(cmpMesh, _cmpFixV.second, moveTo)) {
             std::cout << "Improved fix vertex pos" << std::endl;
-            cmpMesh.move(_cmpFixV.second, moveTo);
             break;
         }
     }
@@ -311,10 +310,8 @@ bool StarDecompositionBoundary::move_fix_vertex(Mesh& mesh) {
 
     p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
     for (int i = 0; i < 3; i++) {
-        if (can_move_vertex_to(mesh, _cmpFixV.second, p)) {
+        if (move_vertex_to(mesh, _cmpFixV.second, p)) {
             _cmpFixV.first = opposite;
-            mesh.move(_cmpFixV.second, p);
-
             return true;
         } else {
             r /= 2;
@@ -326,7 +323,7 @@ bool StarDecompositionBoundary::move_fix_vertex(Mesh& mesh) {
     return false;
 }
 
-bool StarDecompositionBoundary::can_move_vertex_to(Mesh& mesh, OpenMesh::VertexHandle& moveV, const Vector3q& p) {
+bool StarDecompositionBoundary::move_vertex_to(Mesh& mesh, OpenMesh::VertexHandle& moveV, const Vector3q& p) {
     for (auto vf : mesh.vf_range(moveV)) {
         std::vector<OpenMesh::VertexHandle> vertices;
         for (auto v : mesh.fv_range(vf)) {
@@ -338,6 +335,13 @@ bool StarDecompositionBoundary::can_move_vertex_to(Mesh& mesh, OpenMesh::VertexH
         if (triangles_intersect(t, { _meshVertexMap[vertices[0]], _meshVertexMap[vertices[1]] })) {
             return false;
         }
+    }
+
+    Vector3q prevPos = mesh.data(moveV).point_q();
+    mesh.move(_cmpFixV.second, p);
+    if (!has_valid_center(mesh).first) {
+        mesh.move(_cmpFixV.second, prevPos);
+        return false;
     }
 
     return true;
