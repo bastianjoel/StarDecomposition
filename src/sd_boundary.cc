@@ -29,7 +29,7 @@ StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _computed(false)
         _mesh.set_normal(f, n.unaryExpr([](mpq_class x) { return x.get_d(); }));
     }
 
-    if (!OpenMesh::IO::write_mesh(_mesh, "debug/_original.obj")) {
+    if (!OpenMesh::IO::write_mesh(_mesh, "debug/original.obj")) {
         std::cerr << "write error\n";
         exit(1);
     }
@@ -61,7 +61,7 @@ StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) : _comput
         _mesh.set_normal(face, n.unaryExpr([](mpq_class x) { return x.get_d(); }));
     }
 
-    if (!OpenMesh::IO::write_mesh(_mesh, "debug/_original.obj")) {
+    if (!OpenMesh::IO::write_mesh(_mesh, "debug/original.obj")) {
         std::cerr << "write error\n";
         exit(1);
     }
@@ -202,7 +202,7 @@ void StarDecompositionBoundary::run() {
             apply_current_component();
             {
                 char buffer[100];
-                std::sprintf(buffer, "debug/_original_%d.obj", _cmpIdx);
+                std::sprintf(buffer, "debug/original_%d.obj", _cmpIdx);
                 if (!OpenMesh::IO::write_mesh(_mesh, buffer)) {
                     std::cerr << "write error\n";
                     exit(1);
