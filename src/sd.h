@@ -9,6 +9,7 @@
 #include "lp.h"
 #include "volume_mesh.h"
 #include "sd_boundary.h"
+#include "sd_boundary_lp.h"
 #include "vectorq.h"
 #include "mesh.h"
 

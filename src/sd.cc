@@ -16,7 +16,7 @@ std::vector<VolumeMesh> sd(VolumeMesh& N) {
 
     std::cout << "Decompose" << std::endl;
     // std::vector<Vector3q> centers = decompose(N);
-    StarDecompositionBoundary decomposer(N);
+    StarDecompositionBoundaryLp decomposer(N);
     std::vector<Vector3q> centers = decomposer.centers();
     auto cmp = N.property<Cell, int>("cmp");
     int n_cuts = 0;
@@ -56,7 +56,7 @@ std::vector<VolumeMesh> sd(VolumeMesh& N) {
 std::vector<VolumeMesh> sd(Mesh& N) {
     std::cout << "Decompose" << std::endl;
     // std::vector<Vector3q> centers = decompose(N);
-    StarDecompositionBoundary decomposer(N);
+    StarDecompositionBoundaryLp decomposer(N);
     std::vector<Vector3q> centers = decomposer.centers();
 
     return {};
