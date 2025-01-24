@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lp.h"
 #include "mesh.h"
 #include "volume_mesh.h"
 #include "vectorq.h"
@@ -25,9 +26,9 @@ private:
   void run();
 
   std::pair<bool, Vector3q> has_valid_center(Mesh& mesh);
-  std::pair<bool, Vector3q> has_valid_center(Mesh& mesh, const Vector3q& point);
+  std::pair<StarCenterResult, Vector3q> has_valid_center(Mesh& mesh, const Vector3q& point);
 
-  std::pair<const OpenMesh::VertexHandle&, Vector3q> _cmpFixV = std::make_pair(OpenMesh::VertexHandle(), Vector3q());
+  std::pair<OpenMesh::VertexHandle, Vector3q> _cmpFixV = std::make_pair(OpenMesh::VertexHandle(-1), Vector3q());
   std::vector<Mesh> _cmpMeshes;
   Mesh add_component(const OpenMesh::FaceHandle& startF);
 

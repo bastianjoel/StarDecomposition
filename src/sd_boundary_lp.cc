@@ -1,4 +1,5 @@
 #include "sd_boundary_lp.h"
+#include "OpenMesh/Core/Mesh/Handles.hh"
 #include "lp.h"
 #include "tritri.h"
 #include "assertion.h"
@@ -162,27 +163,16 @@ void StarDecompositionBoundaryLp::run() {
                 numCmpFaces++;
             }
         }
-        if ((-numCmpFaces + (numCmpFacesTotal - numCmpFaces)) < 0) {
-            std::cout << "Cmp " << _cmpIdx << " amount faces: " << _currentCmp->faces().to_vector().size() << " full mesh size: " << (-numCmpFaces + (numCmpFacesTotal - numCmpFaces)) << std::endl;
-            apply_current_component();
-            {
-                char buffer[100];
-                std::sprintf(buffer, "debug/original_%d.obj", _cmpIdx);
-                if (!OpenMesh::IO::write_mesh(_mesh, buffer)) {
-                    std::cerr << "write error\n";
-                    exit(1);
-                }
+
+        std::cout << "Cmp " << _cmpIdx << " amount faces: " << _currentCmp->faces().to_vector().size() << " full mesh size: " << (-numCmpFaces + (numCmpFacesTotal - numCmpFaces)) << std::endl;
+        apply_current_component();
+        {
+            char buffer[100];
+            std::sprintf(buffer, "debug/original_%d.obj", _cmpIdx);
+            if (!OpenMesh::IO::write_mesh(_mesh, buffer)) {
+                std::cerr << "write error\n";
+                exit(1);
             }
-            startOffset = 0;
-        } else {
-            for (auto f : _mesh.faces()) {
-                if (_mesh.property(_cmp, f) == _cmpIdx) {
-                    _mesh.property(_cmp, f) = cmpNotSetIdx;
-                }
-            }
-        
-            _cmpMeshes.pop_back();
-            startOffset++;
         }
 
         _currentCmp->garbage_collection();
@@ -194,6 +184,7 @@ void StarDecompositionBoundaryLp::run() {
                 exit(1);
             }
         }
+        exit(1);
     }
 
     std::cout << "Num components: " << _cmpIdx + 1 << std::endl;
@@ -217,8 +208,7 @@ void StarDecompositionBoundaryLp::run() {
 }
 
 void StarDecompositionBoundaryLp::apply_current_component() {
-    std::cout << "Valid fix vertex: " << _cmpFixV.first.is_valid() << std::endl;
-    ASSERT(!_cmpFixV.first.is_valid());
+    // ASSERT(!_cmpFixV.first.is_valid());
 
     auto fixVertex = _cmpFixV.first.is_valid() ? _meshVertexMap[_cmpFixV.first] : _mesh.add_vertex_q(_cmpFixV.second);
     for (auto f : _mesh.faces()) {
@@ -227,19 +217,23 @@ void StarDecompositionBoundaryLp::apply_current_component() {
         }
     }
 
+    /*
     for (auto h : _mesh.halfedges()) {
         if (_mesh.is_boundary(h)) {
             auto f = _mesh.add_face(_mesh.from_vertex_handle(h), _mesh.to_vertex_handle(h), fixVertex);
-            _mesh.update_normal_q(f);
-            _mesh.property(_cmp, f) = cmpNotSetIdx;
+            if (f.is_valid()) {
+                _mesh.update_normal_q(f);
+                _mesh.property(_cmp, f) = cmpNotSetIdx;
+            }
         }
     }
+    */
 
     Mesh& cmpMesh = *_currentCmp;
     fixVertex = _cmpFixV.first.is_valid() ? _cmpFixV.first : cmpMesh.add_vertex_q(_cmpFixV.second);
     for (auto h : cmpMesh.halfedges()) {
         if (cmpMesh.is_boundary(h)) {
-            cmpMesh.add_face(cmpMesh.from_vertex_handle(h), cmpMesh.to_vertex_handle(h), fixVertex);
+            // cmpMesh.add_face(cmpMesh.from_vertex_handle(h), cmpMesh.to_vertex_handle(h), fixVertex);
         }
     }
 
@@ -299,17 +293,19 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHand
         triangle.push_back(_cmpVertexMap[hv]);
     }
 
-    if (existingEdges < 2 && !newFaceVertex.is_valid()) {
-        return false;
+    // if (existingEdges < 2 && !newFaceVertex.is_valid()) {
+        // return false;
+    // }
+
+    if (!borderVertex.is_valid()) {
+        borderVertex = triangle[0];
     }
 
     auto cmpCenter = has_valid_center(mesh, _currentCmp->data(borderVertex).point_q());
-    std::cout << "Center: " << cmpCenter.first << " Valid: " << cmpCenter.second << std::endl;
-    if (cmpCenter.first == false) {
+    if (cmpCenter.first == INVALID) {
         return false;
     }
 
-    bool illegalTriangle = false;
     OpenMesh::FaceHandle face = txMesh.add_face(triangle);
     mesh.set_normal_q(face, _mesh.data(newFace).normal_q());
     for (auto fh : mesh.fh_range(face)) {
@@ -318,6 +314,7 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHand
             auto v1 = mesh.from_vertex_handle(fh);
             std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), cmpCenter.second };
             if (triangles_intersect(t, { _meshVertexMap[v0], _meshVertexMap[v1] })) {
+                /*
                 if (newFaceVertex.is_valid()) {
                     _meshVertexMap.erase(_cmpVertexMap[newFaceVertex]);
                     _cmpVertexMap.erase(newFaceVertex);
@@ -325,10 +322,16 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHand
 
                 txMesh.revert();
                 return false;
+                */
             }
         }
     }
 
+    if (cmpCenter.first == VALID_EQUAL) {
+        _cmpFixV.first = borderVertex;
+    } else {
+        _cmpFixV.first = OpenMesh::VertexHandle(-1);
+    }
     _cmpFixV.second = cmpCenter.second;
     return true;
 }
@@ -383,7 +386,7 @@ bool StarDecompositionBoundaryLp::triangles_intersect(std::vector<Vector3q> t, s
     return false;
 }
 
-std::pair<bool, Vector3q> StarDecompositionBoundaryLp::has_valid_center(Mesh& mesh, const Vector3q& point) {
+std::pair<StarCenterResult, Vector3q> StarDecompositionBoundaryLp::has_valid_center(Mesh& mesh, const Vector3q& point) {
     std::vector<Eigen::Vector3d> positions;
     std::vector<Eigen::Vector3d> normals;
     for (auto face : mesh.faces()) {
@@ -393,26 +396,32 @@ std::pair<bool, Vector3q> StarDecompositionBoundaryLp::has_valid_center(Mesh& me
         }
     }
 
-    auto result = star_center_close_to(point.unaryExpr([](mpq_class x) { return x.get_d(); }), positions, normals);
-    std::cout << "Result: " << result.first << " " << result.second << std::endl;
+    Eigen::Vector3d p = point.unaryExpr([](mpq_class x) { return x.get_d(); });
+    auto result = star_center_close_to(p, positions, normals);
     if (result.first == INVALID) {
-        return std::make_pair(false, Vector3q::Zero());
+        return std::make_pair(result.first, Vector3q::Zero());
     }
 
-    Vector3q newCenter = result.second.cast<mpq_class>();
+    Vector3q newCenter = result.first == VALID_EQUAL ? point : result.second.cast<mpq_class>();
+    /*
     for (auto face : mesh.faces()) {
         std::vector<Vector3q> triangle;
         for (auto fv : mesh.fv_range(face)) {
+            if (mesh.data(fv).point_q() == newCenter) {
+                break;
+            }
             triangle.push_back(mesh.data(fv).point_q());
         }
-        Vector3q n = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]);
-        if ((triangle[0] - newCenter).dot(n) <= 0) {
-            return std::make_pair(false, Vector3q::Zero());
+        if (triangle.size() == 3) {
+            Vector3q n = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]);
+            if ((triangle[0] - newCenter).dot(n) <= 0) {
+                // return std::make_pair(INVALID, Vector3q::Zero());
+            }
         }
     }
+    */
 
-    // TODO: Handle exact result
-    return std::make_pair(true, newCenter);
+    return std::make_pair(result.first, newCenter);
 }
 
 std::pair<bool, Vector3q> StarDecompositionBoundaryLp::has_valid_center(Mesh& mesh) {

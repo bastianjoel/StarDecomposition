@@ -55,7 +55,7 @@ std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::V
         lp.set_b(positions.size() + 3 + i, -point(i));
     }
     CGAL::Quadratic_program_solution<double> sol = CGAL::solve_linear_program(lp, 21.0);
-    if (!sol.solves_linear_program(lp)) {
+    if (sol.is_infeasible()) {
         return std::make_pair(INVALID, Eigen::Vector3d::Zero());
     }
 
@@ -65,16 +65,14 @@ std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::V
         x(i) = CGAL::quotient_truncation(*it);
         it++;
     }
-    if (sol.is_optimal() && !std::isnan(x(0)) && !std::isnan(x(1)) && !std::isnan(x(2))) {
-        if (sol.objective_value() == 0) {
-            return std::make_pair(VALID_EQUAL, x);
-        }
-        return std::make_pair(VALID, x);
+
+    std::cout << "Vars: " << CGAL::quotient_truncation(*it) << " " << CGAL::quotient_truncation(*(it + 1)) << " " << CGAL::quotient_truncation(*(it + 2));
+    std::cout << " " << CGAL::quotient_truncation(*(it + 3)) << " " << CGAL::quotient_truncation(*(it + 4)) << " " << CGAL::quotient_truncation(*(it + 5)) << std::endl;
+    std::cout << "Objective: " << sol.objective_value() << std::endl;
+    // std::cout << "Solution: " << sol << std::endl;
+    std::cout << "Solves: " << sol.is_valid() << std::endl;
+    if (sol.objective_value() == 0) {
+        return std::make_pair(VALID_EQUAL, point);
     }
-    x = Eigen::Vector3d::Zero();
-    for (int i = 0; i < positions.size(); i++) {
-        x += positions[i];
-    }
-    x /= (double) positions.size();
     return std::make_pair(VALID, x);
 }
