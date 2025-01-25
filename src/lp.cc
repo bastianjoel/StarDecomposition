@@ -42,17 +42,20 @@ std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::V
         for (int j = 0; j < 3; j++) {
             lp.set_a(j, i, n(j));
         }
-        lp.set_b(i, n.dot(positions[i]));
+        lp.set_b(i, -n.dot(positions[i]));
     }
+
     for (int i = 0; i < 3; i++) {
         // (x, y, z) - point_i <= u_i
         lp.set_a(i, positions.size() + i, 1);
-        lp.set_a(i + 3, positions.size() + i, 1);
+        lp.set_a(i + 3, positions.size() + i, -1);
         lp.set_b(positions.size() + i, point(i));
         // -((x, y, z) - point) <= u_i
         lp.set_a(i, positions.size() + 3 + i, -1);
         lp.set_a(i + 3, positions.size() + 3 + i, -1);
         lp.set_b(positions.size() + 3 + i, -point(i));
+        // u_i >= 0
+        lp.set_l(i + 3, true, 0);
     }
     CGAL::Quadratic_program_solution<double> sol = CGAL::solve_linear_program(lp, 21.0);
     if (sol.is_infeasible()) {
@@ -66,9 +69,11 @@ std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::V
         it++;
     }
 
+    it = sol.variable_values_begin();
     std::cout << "Vars: " << CGAL::quotient_truncation(*it) << " " << CGAL::quotient_truncation(*(it + 1)) << " " << CGAL::quotient_truncation(*(it + 2));
     std::cout << " " << CGAL::quotient_truncation(*(it + 3)) << " " << CGAL::quotient_truncation(*(it + 4)) << " " << CGAL::quotient_truncation(*(it + 5)) << std::endl;
     std::cout << "Objective: " << sol.objective_value() << std::endl;
+    std::cout << "Point: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
     // std::cout << "Solution: " << sol << std::endl;
     std::cout << "Solves: " << sol.is_valid() << std::endl;
     if (sol.objective_value() == 0) {
