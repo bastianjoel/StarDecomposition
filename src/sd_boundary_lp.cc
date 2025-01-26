@@ -132,26 +132,7 @@ void StarDecompositionBoundaryLp::run() {
             for (auto he : _mesh.fh_range(nextH)) {
                 auto oFace = _mesh.opposite_face_handle(he);
                 if (oFace.is_valid() && _mesh.property(_cmp, oFace) == cmpNotSetIdx) {
-                    // Check if face can be added between two existing faces
-                    bool between = false;
-                    for (auto fh : _mesh.fh_range(oFace)) {
-                        auto hv = _mesh.from_vertex_handle(fh);
-                        auto hvTo = _mesh.to_vertex_handle(fh);
-                        if (fh != he && _cmpVertexMap[hv].is_valid() && _cmpVertexMap[hvTo].is_valid()) {
-                            auto h = _currentCmp->find_halfedge(_cmpVertexMap[hv], _cmpVertexMap[hvTo]);
-                            if (h.is_valid()) {
-                                between = true;
-                            }
-                            break;
-                        }
-                    }
-
-                    // Prefer faces that can be added between
-                    if (between) {
-                        candidates.push_front(oFace);
-                    } else {
-                        candidates.push_back(oFace);
-                    }
+                    candidates.push_back(oFace);
                 }
             }
         }
@@ -293,9 +274,9 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHand
         triangle.push_back(_cmpVertexMap[hv]);
     }
 
-    // if (existingEdges < 2 && !newFaceVertex.is_valid()) {
-        // return false;
-    // }
+    if (existingEdges == 1 && !newFaceVertex.is_valid()) {
+        return false;
+    }
 
     if (!borderVertex.is_valid()) {
         borderVertex = triangle[0];
@@ -303,29 +284,35 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHand
 
     auto cmpCenter = has_valid_center(mesh, _currentCmp->data(borderVertex).point_q());
     if (cmpCenter.first == INVALID) {
+        if (newFaceVertex.is_valid()) {
+            mesh.delete_vertex(_cmpVertexMap[newFaceVertex]);
+            _meshVertexMap.erase(_cmpVertexMap[newFaceVertex]);
+            _cmpVertexMap.erase(newFaceVertex);
+        }
         return false;
     }
 
     OpenMesh::FaceHandle face = txMesh.add_face(triangle);
     mesh.set_normal_q(face, _mesh.data(newFace).normal_q());
+    /*
     for (auto fh : mesh.fh_range(face)) {
         if (mesh.opposite_halfedge_handle(fh).is_boundary()) {
             auto v0 = mesh.to_vertex_handle(fh);
             auto v1 = mesh.from_vertex_handle(fh);
             std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), cmpCenter.second };
             if (triangles_intersect(t, { _meshVertexMap[v0], _meshVertexMap[v1] })) {
-                /*
                 if (newFaceVertex.is_valid()) {
                     _meshVertexMap.erase(_cmpVertexMap[newFaceVertex]);
                     _cmpVertexMap.erase(newFaceVertex);
+                    mesh.delete_vertex(newFaceVertex);
                 }
 
                 txMesh.revert();
                 return false;
-                */
             }
         }
     }
+    */
 
     if (cmpCenter.first == VALID_EQUAL) {
         _cmpFixV.first = borderVertex;
@@ -403,24 +390,6 @@ std::pair<StarCenterResult, Vector3q> StarDecompositionBoundaryLp::has_valid_cen
     }
 
     Vector3q newCenter = result.first == VALID_EQUAL ? point : result.second.cast<mpq_class>();
-    /*
-    for (auto face : mesh.faces()) {
-        std::vector<Vector3q> triangle;
-        for (auto fv : mesh.fv_range(face)) {
-            if (mesh.data(fv).point_q() == newCenter) {
-                break;
-            }
-            triangle.push_back(mesh.data(fv).point_q());
-        }
-        if (triangle.size() == 3) {
-            Vector3q n = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]);
-            if ((triangle[0] - newCenter).dot(n) <= 0) {
-                // return std::make_pair(INVALID, Vector3q::Zero());
-            }
-        }
-    }
-    */
-
     return std::make_pair(result.first, newCenter);
 }
 
