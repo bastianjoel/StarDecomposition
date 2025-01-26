@@ -26,7 +26,7 @@ private:
   void run();
 
   std::pair<bool, Vector3q> has_valid_center(Mesh& mesh);
-  std::pair<StarCenterResult, Vector3q> has_valid_center(Mesh& mesh, const Vector3q& point);
+  std::pair<StarCenterResult, Vector3q> has_valid_center(Mesh& mesh, const Vector3q& point, std::vector<std::pair<Vector3q, Vector3q>> additional = std::vector<std::pair<Vector3q, Vector3q>>());
 
   std::pair<OpenMesh::VertexHandle, Vector3q> _cmpFixV = std::make_pair(OpenMesh::VertexHandle(-1), Vector3q());
   std::vector<Mesh> _cmpMeshes;
@@ -39,7 +39,7 @@ private:
   bool add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& hf);
   void apply_current_component();
 
-  bool triangles_intersect(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> v);
+  OpenMesh::FaceHandle triangles_intersect(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> v);
 
   // OpenMesh::FaceHandle check_intersecting(OpenMesh::FaceHandle hf);
 

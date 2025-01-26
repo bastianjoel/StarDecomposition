@@ -42,7 +42,7 @@ std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::V
         for (int j = 0; j < 3; j++) {
             lp.set_a(j, i, n(j));
         }
-        lp.set_b(i, -n.dot(positions[i]));
+        lp.set_b(i, -(n.dot(positions[i])));
     }
 
     for (int i = 0; i < 3; i++) {
@@ -58,10 +58,6 @@ std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::V
         lp.set_l(i + 3, true, 0);
     }
     CGAL::Quadratic_program_solution<double> sol = CGAL::solve_linear_program(lp, 21.0);
-    if (sol.is_infeasible()) {
-        return std::make_pair(INVALID, Eigen::Vector3d::Zero());
-    }
-
     Eigen::Vector3d x;
     auto it = sol.variable_values_begin();
     for (int i = 0; i < 3; i++) {
@@ -76,6 +72,11 @@ std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::V
     std::cout << "Point: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
     // std::cout << "Solution: " << sol << std::endl;
     std::cout << "Solves: " << sol.is_valid() << std::endl;
+    if (sol.is_infeasible()) {
+        std::cout << "Infeasible" << std::endl;
+        return std::make_pair(INVALID, Eigen::Vector3d::Zero());
+    }
+
     if (sol.objective_value() == 0) {
         return std::make_pair(VALID_EQUAL, point);
     }
