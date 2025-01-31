@@ -1,6 +1,5 @@
 #include "sd_boundary.h"
 #include "lp.h"
-#include "tritri.h"
 #include "assertion.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <cmath>
@@ -368,7 +367,7 @@ bool StarDecompositionBoundary::move_vertex_to(Mesh& mesh, OpenMesh::VertexHandl
             }
         }
         std::vector<Vector3q> t = { mesh.data(vertices[0]).point_q(), mesh.data(vertices[1]).point_q(), p };
-        if (triangles_intersect(t, { _meshVertexMap[vertices[0]], _meshVertexMap[vertices[1]] })) {
+        if (_mesh.triangle_intersects(t, { _meshVertexMap[vertices[0]], _meshVertexMap[vertices[1]] }).is_valid()) {
             return false;
         }
     }
@@ -485,7 +484,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
                 auto v1 = mesh.from_vertex_handle(fh);
                 auto v2 = fixedVertex;
                 std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), mesh.data(v2).point_q() };
-                if (triangles_intersect(t, { _meshVertexMap[v0], _meshVertexMap[v1] })) {
+                if (_mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] }).is_valid()) {
                     illegalTriangle = true;
                     break;
                 }
@@ -599,7 +598,7 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_fix_ver
             auto v0 = mesh.to_vertex_handle(fh);
             auto v1 = mesh.from_vertex_handle(fh);
             std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), p };
-            if (triangles_intersect(t, { v0, v1 })) {
+            if (_mesh.triangle_intersects(t, { v0, v1 }).is_valid()) {
                 intersects = true;
                 r /= 2;
                 p = vPos + r * n;
@@ -613,56 +612,6 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_fix_ver
     p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
 
     return std::make_pair(opposite, p);
-}
-
-bool StarDecompositionBoundary::triangles_intersect(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> borderVertices) {
-    Vector3q n = (t[1] - t[0]).cross(t[2] - t[0]);
-    for (auto face : _mesh.faces()) {
-        auto v0 = _mesh.to_vertex_handle(_mesh.halfedge_handle(face));
-        auto v1 = _mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(face)));
-        auto v2 = _mesh.to_vertex_handle(_mesh.next_halfedge_handle(_mesh.next_halfedge_handle(_mesh.halfedge_handle(face))));
-
-        // Move connecting vertices slightly to avoid intersection
-        bool shareV0 = false, shareV1 = false, shareV2 = false;
-        for (auto v : borderVertices) {
-            if (v == v0) {
-                shareV0 = true;
-            } else if (v == v1) {
-                shareV1 = true;
-            } else if (v == v2) {
-                shareV2 = true;
-            }
-        }
-        short sharedVertices = shareV0 + shareV1 + shareV2;
-        ASSERT(sharedVertices < 3);
-
-        Vector3q fNormal = _mesh.data(face).normal_q();
-        Vector3q v0q = _mesh.data(v0).point_q();
-        Vector3q v1q = _mesh.data(v1).point_q();
-        Vector3q v2q = _mesh.data(v2).point_q();
-        if (shareV0 && shareV1) {
-            v0q = v0q + (v2q - v0q) * 1e-6;
-            v1q = v1q + (v2q - v1q) * 1e-6;
-        } else if (shareV0 && shareV2) {
-            v0q = v0q + (v1q - v0q) * 1e-6;
-            v2q = v2q + (v1q - v2q) * 1e-6;
-        } else if (shareV1 && shareV2) {
-            v1q = v1q + (v0q - v1q) * 1e-6;
-            v2q = v2q + (v0q - v2q) * 1e-6;
-        } else if (shareV0) {
-            v0q = v0q + (v2q - v0q) * 1e-6 + (v1q - v0q) * 1e-6;
-        } else if (shareV1) {
-            v1q = v1q + (v2q - v1q) * 1e-6 + (v0q - v1q) * 1e-6;
-        } else if (shareV2) {
-            v2q = v2q + (v1q - v2q) * 1e-6 + (v0q - v2q) * 1e-6;
-        }
-
-        if (tri_tri_intersect(t[0], t[1], t[2], n, v0q, v1q, v2q, fNormal)) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 std::pair<bool, Vector3q> StarDecompositionBoundary::has_valid_center(Mesh& mesh) {

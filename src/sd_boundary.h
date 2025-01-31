@@ -43,8 +43,6 @@ private:
   OpenMesh::FaceHandle get_opposite_face(Vector3q from, Vector3q normal);
   std::pair<OpenMesh::FaceHandle, Vector3q> get_fix_vertex_pos(Mesh& mesh, OpenMesh::FaceHandle& hf);
 
-  bool triangles_intersect(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> v);
-
   // OpenMesh::FaceHandle check_intersecting(OpenMesh::FaceHandle hf);
 
   // Direct add (experiment)

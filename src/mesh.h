@@ -6,7 +6,9 @@
 #include <Eigen/src/Core/Matrix.h>
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 #include <OpenMesh/Core/Geometry/EigenVectorT.hh>
+#include "assertion.h"
 #include "vectorq.h"
+#include "tritri.h"
 
 // define traits
 struct MyTraits : public OpenMesh::DefaultTraits
@@ -102,6 +104,58 @@ public:
         for (auto f : vf_range(vh)) {
             update_normal_q(f);
         }
+    }
+
+    OpenMesh::FaceHandle triangle_intersects(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> borderVertices) {
+        Vector3q n = (t[1] - t[0]).cross(t[2] - t[0]);
+        for (auto face : this->faces()) {
+            if (triangle_intersects(t, n, borderVertices, face)) {
+                return face;
+            }
+        }
+
+        return OpenMesh::FaceHandle();
+    }
+
+    bool triangle_intersects(std::vector<Vector3q> t, Vector3q n, std::vector<OpenMesh::VertexHandle> borderVertices, OpenMesh::FaceHandle face) {
+        std::vector<OpenMesh::VertexHandle> fv = {
+            this->to_vertex_handle(this->halfedge_handle(face)),
+            this->to_vertex_handle(this->next_halfedge_handle(this->halfedge_handle(face))),
+            this->to_vertex_handle(this->next_halfedge_handle(this->next_halfedge_handle(this->halfedge_handle(face))))
+        };
+
+        // Move connecting vertices slightly to avoid intersection
+        std::vector<bool> shareV = { false, false, false };
+        for (auto v : borderVertices) {
+            for (int i = 0; i < 3; i++) {
+                if (v == fv[i]) {
+                    shareV[i] = true;
+                }
+            }
+        }
+        short sharedVertices = shareV[0] + shareV[1] + shareV[2];
+        ASSERT(sharedVertices < 3);
+
+        Vector3q fNormal = this->data(face).normal_q();
+        std::vector<Vector3q> vq = { this->data(fv[0]).point_q(), this->data(fv[1]).point_q(), this->data(fv[2]).point_q() };
+        if (shareV[0] && shareV[1]) {
+            vq[0] = vq[0] + (vq[2] - vq[0]) * 1e-6;
+            vq[1] = vq[1] + (vq[2] - vq[1]) * 1e-6;
+        } else if (shareV[0] && shareV[2]) {
+            vq[0] = vq[0] + (vq[1] - vq[0]) * 1e-6;
+            vq[2] = vq[2] + (vq[1] - vq[2]) * 1e-6;
+        } else if (shareV[1] && shareV[2]) {
+            vq[1] = vq[1] + (vq[0] - vq[1]) * 1e-6;
+            vq[2] = vq[2] + (vq[0] - vq[2]) * 1e-6;
+        } else if (shareV[0]) {
+            vq[0] = vq[0] + (vq[2] - vq[0]) * 1e-6 + (vq[1] - vq[0]) * 1e-6;
+        } else if (shareV[1]) {
+            vq[1] = vq[1] + (vq[2] - vq[1]) * 1e-6 + (vq[0] - vq[1]) * 1e-6;
+        } else if (shareV[2]) {
+            vq[2] = vq[2] + (vq[1] - vq[2]) * 1e-6 + (vq[0] - vq[2]) * 1e-6;
+        }
+
+        return tri_tri_intersect(t[0], t[1], t[2], n, vq[0], vq[1], vq[2], fNormal);
     }
 };
 
