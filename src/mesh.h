@@ -7,6 +7,7 @@
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 #include <OpenMesh/Core/Geometry/EigenVectorT.hh>
 #include "assertion.h"
+#include "lp.h"
 #include "vectorq.h"
 #include "tritri.h"
 
@@ -156,6 +157,31 @@ public:
         }
 
         return tri_tri_intersect(t[0], t[1], t[2], n, vq[0], vq[1], vq[2], fNormal);
+    }
+
+    std::pair<bool, Vector3q> star_center() {
+        std::vector<Eigen::Vector3d> positions;
+        std::vector<Eigen::Vector3d> normals;
+        for (auto face : this->faces()) {
+            if (face.is_valid() && !face.deleted()) {
+                positions.push_back(this->point(this->to_vertex_handle(this->halfedge_handle(face))));
+                normals.push_back(this->normal(face).normalized());
+            }
+        }
+
+        Vector3q newCenter = kernel_chebyshev_center(positions, normals).cast<mpq_class>();
+        for (auto face : this->faces()) {
+            std::vector<Vector3q> triangle;
+            for (auto fv : this->fv_range(face)) {
+                triangle.push_back(this->data(fv).point_q());
+            }
+            Vector3q n = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]);
+            if ((triangle[0] - newCenter).dot(n) <= 0) {
+                return std::make_pair(false, Vector3q());
+            }
+        }
+
+        return std::make_pair(true, newCenter);
     }
 };
 

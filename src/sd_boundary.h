@@ -15,6 +15,9 @@ private:
   bool _wasVolumeMesh;
   VolumeMesh _originalMesh;
 
+  int noCenter = 0;
+  int triangleIntersect = 0;
+  int other = 0;
   Mesh _mesh = Mesh();
   bool _computed;
   int _cmpIdx = 0;
@@ -24,8 +27,6 @@ private:
   // std::set<Halfface> _surface_hf;
   // std::vector<Halfface> _boundary;
   void run();
-
-  std::pair<bool, Vector3q> has_valid_center(Mesh& mesh);
 
   // Global component meshes
   std::pair<OpenMesh::FaceHandle, OpenMesh::VertexHandle> _cmpFixV;

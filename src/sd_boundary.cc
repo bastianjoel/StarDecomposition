@@ -112,7 +112,7 @@ void StarDecompositionBoundary::run() {
 #endif
 
         add_component(h);
-        if (has_valid_center(_mesh).first) {
+        if (_mesh.star_center().first) {
             for (auto f : _mesh.faces()) {
                 _mesh.property(_cmp, f) = cmpNotSetIdx;
                 _cmpMeshes[_cmpIdx] = _mesh;
@@ -191,6 +191,7 @@ void StarDecompositionBoundary::run() {
         if ((resets > 5 && amount <= 0.3 * bestSinceReset)) {
             std::cout << "Cmp " << _cmpIdx << " amount faces: " << _currentCmp->faces().to_vector().size() << " full mesh size change: " << (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
             std::cout << " resets: " << resets << " full mesh size: " << _mesh.n_faces() << std::endl;
+            std::cout << "Triangle intersect: " << triangleIntersect << " No center: " << noCenter << " Other: " << other << std::endl;
             apply_current_component();
             {
                 char buffer[100];
@@ -204,6 +205,7 @@ void StarDecompositionBoundary::run() {
             resets = 0;
             bestSinceReset = 0;
         } else {
+            std::cout << "\tTriangle intersect: " << triangleIntersect << " No center: " << noCenter << " Other: " << other << std::endl;
             for (auto f : _mesh.faces()) {
                 if (_mesh.property(_cmp, f) == _cmpIdx) {
                     _mesh.property(_cmp, f) = cmpNotSetIdx;
@@ -218,6 +220,8 @@ void StarDecompositionBoundary::run() {
                 bestSinceReset = (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
             }
         }
+
+        triangleIntersect = 0; noCenter = 0; other = 0;
 
         _currentCmp->garbage_collection();
         {
@@ -374,7 +378,7 @@ bool StarDecompositionBoundary::move_vertex_to(Mesh& mesh, OpenMesh::VertexHandl
 
     Vector3q prevPos = mesh.data(moveV).point_q();
     mesh.move(_cmpFixV.second, p);
-    if (!has_valid_center(mesh).first) {
+    if (!mesh.star_center().first) {
         mesh.move(_cmpFixV.second, prevPos);
         return false;
     }
@@ -498,10 +502,16 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
 
     std::pair<bool, Vector3q> cmpCenter;
     if (shouldCheck && !illegalTriangle) {
-        cmpCenter = has_valid_center(mesh);
+        cmpCenter = mesh.star_center();
     }
 
     if (illegalTriangle || !shouldCheck || !cmpCenter.first) {
+        if (illegalTriangle) {
+            triangleIntersect++;
+        } else if (!cmpCenter.first) {
+            noCenter++;
+        }
+
         if (newFaceVertex.is_valid()) {
             _meshVertexMap.erase(_cmpVertexMap[newFaceVertex]);
             _cmpVertexMap.erase(newFaceVertex);
@@ -510,6 +520,8 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
         txMesh.revert();
 
         return false;
+    } else {
+        other++;
     }
 
 
@@ -612,29 +624,4 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_fix_ver
     p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
 
     return std::make_pair(opposite, p);
-}
-
-std::pair<bool, Vector3q> StarDecompositionBoundary::has_valid_center(Mesh& mesh) {
-    std::vector<Eigen::Vector3d> positions;
-    std::vector<Eigen::Vector3d> normals;
-    for (auto face : mesh.faces()) {
-        if (face.is_valid() && !face.deleted()) {
-            positions.push_back(mesh.point(mesh.to_vertex_handle(mesh.halfedge_handle(face))));
-            normals.push_back(mesh.normal(face).normalized());
-        }
-    }
-
-    Vector3q newCenter = kernel_chebyshev_center(positions, normals).cast<mpq_class>();
-    for (auto face : mesh.faces()) {
-        std::vector<Vector3q> triangle;
-        for (auto fv : mesh.fv_range(face)) {
-            triangle.push_back(mesh.data(fv).point_q());
-        }
-        Vector3q n = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]);
-        if ((triangle[0] - newCenter).dot(n) <= 0) {
-            return std::make_pair(false, Vector3q::Zero());
-        }
-    }
-
-    return std::make_pair(true, newCenter);
 }
