@@ -183,6 +183,20 @@ public:
 
         return std::make_pair(true, newCenter);
     }
+
+    std::pair<bool, mpq_class> intersection_factor(const Vector3q& p, const Vector3q& dir, OpenMesh::FaceHandle face) {
+        auto faceNormal = this->data(face).normal_q();
+        auto div = faceNormal.transpose() * dir;
+        if (div[0] == 0) {
+            return std::make_pair(false, mpq_class());
+        }
+
+        // Calculate intersection
+        auto c = faceNormal.transpose() * this->data(this->to_vertex_handle(this->halfedge_handle(face))).point_q();
+        auto nominator = faceNormal.transpose() * p - c;
+        auto denominator = faceNormal.transpose() * dir;
+        return std::make_pair(true, (-nominator / denominator)[0]);
+    }
 };
 
 template <class Mesh> class TxDeleteT

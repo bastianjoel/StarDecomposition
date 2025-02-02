@@ -337,14 +337,7 @@ bool StarDecompositionBoundary::move_fix_vertex(Mesh& mesh) {
 
     Vector3q vPos = mesh.data(_cmpFixV.second).point_q();
     auto n = -mesh.calc_normal(_cmpFixV.second).cast<mpq_class>();
-    auto faceNormal = _mesh.data(opposite).normal_q();
-
-    // Calculate intersection
-    auto c = faceNormal.transpose() * _mesh.data(_mesh.to_vertex_handle(_mesh.halfedge_handle(opposite))).point_q();
-    auto nominator = faceNormal.transpose() * vPos - c;
-    auto denominator = faceNormal.transpose() * n;
-    auto r = (-nominator / denominator)[0];
-    r /= 2;
+    mpq_class r = _mesh.intersection_factor(vPos, n, opposite).second / 2;
     Vector3q p = vPos + r * n;
 
     p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
@@ -550,22 +543,12 @@ OpenMesh::FaceHandle StarDecompositionBoundary::get_opposite_face(Vector3q vPos,
 
     // Find cutting boundary face
     for (auto f : _mesh.faces()) {
-        auto faceNormal = _mesh.data(f).normal_q();
-        auto div = faceNormal.transpose() * n;
-        if (div[0] == 0) {
+        auto r = _mesh.intersection_factor(vPos, n, f);
+        if (!r.first || r.second > 0) {
             continue;
         }
 
-        // Calculate intersection
-        auto c = faceNormal.transpose() * _mesh.data(_mesh.to_vertex_handle(_mesh.halfedge_handle(f))).point_q();
-        auto nominator = faceNormal.transpose() * vPos - c;
-        auto denominator = faceNormal.transpose() * n;
-        auto r = (-nominator / denominator)[0];
-        if (r > 0) {
-            continue;
-        }
-
-        auto p = vPos + r * n;
+        auto p = vPos + r.second * n;
         if (!_mesh.point_on_face(f, p)) {
             continue;
         }
@@ -593,14 +576,7 @@ std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundary::get_fix_ver
 
     Vector3q vPos = mesh.face_center(hf);
     auto n = mesh.data(hf).normal_q();
-    auto faceNormal = mesh.data(opposite).normal_q();
-
-    // Calculate intersection
-    auto c = faceNormal.transpose() * mesh.data(mesh.to_vertex_handle(mesh.halfedge_handle(opposite))).point_q();
-    auto nominator = faceNormal.transpose() * vPos - c;
-    auto denominator = faceNormal.transpose() * n;
-    auto r = (-nominator / denominator)[0];
-    r = r / 2;
+    mpq_class r = mesh.intersection_factor(vPos, n, opposite).second / 2;
     Vector3q p = vPos + r * n;
 
     bool intersects;
