@@ -36,7 +36,7 @@ private:
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _meshVertexMap;
   Mesh add_component(OpenMesh::FaceHandle startF);
   bool add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& hf);
-  bool move_fix_vertex(Mesh& mesh);
+  bool move_fix_vertex(Mesh& mesh, bool shrink);
   bool move_vertex_to(Mesh& mesh, OpenMesh::VertexHandle& v, const Vector3q& p);
   void apply_current_component();
   OpenMesh::FaceHandle get_opposite_face(Mesh& mesh, OpenMesh::FaceHandle& origin);
