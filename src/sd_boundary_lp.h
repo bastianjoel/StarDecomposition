@@ -25,10 +25,9 @@ private:
   // std::vector<Halfface> _boundary;
   void run();
 
-  std::pair<bool, Vector3q> has_valid_center(Mesh& mesh);
-  std::pair<StarCenterResult, Vector3q> has_valid_center(Mesh& mesh, const Vector3q& point, std::vector<std::pair<Vector3q, Vector3q>> additional = std::vector<std::pair<Vector3q, Vector3q>>());
+  std::pair<StarCenterResult, Vector3q> has_valid_center(Mesh& mesh);
 
-  std::pair<OpenMesh::VertexHandle, Vector3q> _cmpFixV = std::make_pair(OpenMesh::VertexHandle(-1), Vector3q());
+  Vector3q _cmpFixV = Vector3q();
   std::vector<Mesh> _cmpMeshes;
   Mesh add_component(const OpenMesh::FaceHandle& startF);
 
