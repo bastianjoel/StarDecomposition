@@ -35,7 +35,7 @@ void callback() {
 #endif
 
 void print_usage(std::string arg0, std::string path) {
-    std::cout << "Usage: " << arg0 << " <N> [-o <out_dir>]" << std::endl;
+    std::cout << "Usage: " << arg0 << " <N> [-a tet|boundary-lp|boundary] [-o <out_dir>]" << std::endl;
     std::cout << "  e.g. " << arg0 << " " << path << SEP << "meshes" << SEP << "thumb.vtk" << std::endl;
 }
 
@@ -44,6 +44,7 @@ int main(int argc, char** argv) {
     std::string path = arg0.substr(0, arg0.rfind(SEP) + 1) + "..";
     std::string N_filename = "";
     std::string out_dir = "";
+    std::string algorithm = "";
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
         if (arg.at(0) == '-') {
@@ -62,6 +63,14 @@ int main(int argc, char** argv) {
                     }
                     out_dir = std::string(argv[i]);
                     break;
+                case 'a':
+                    i++;
+                    if (argc <= i) {
+                        std::cout << "Algorithm name missing" << std::endl;
+                        return 0;
+                    }
+                    algorithm = std::string(argv[i]);
+                    break;
                 default:
                     std::cout << "Invalid option \"" << c << "\"" << std::endl;
                     print_usage(arg0, path);
@@ -76,28 +85,29 @@ int main(int argc, char** argv) {
         N_filename = path + SEP + "meshes" + SEP + "thumb.vtk";
     }
 
+    std::vector<VolumeMesh> components;
     std::string extension = N_filename.substr(N_filename.rfind('.') + 1);
     if (extension == "obj" || extension == "stl" || extension == "ply") {
-        Mesh mesh;
-        OpenMesh::IO::read_mesh(mesh, N_filename);
-        sd(mesh);
-        return -1;
-    }
+        Mesh N;
+        OpenMesh::IO::read_mesh(N, N_filename);
+        components = sd(N, algorithm);
+    } else {
+        int orientation = 0;
+        VolumeMesh N = read(N_filename, orientation);
 
-    int orientation = 0;
-    VolumeMesh N = read(N_filename, orientation);
-
-    for (auto c : N.cells()) {
-        if (N.degenerate_or_inverted(c)) {
-            std::cout << "TetGen" << std::endl;
-            if (!retetrahedrize(N)) {
-                return 0;
+        for (auto c : N.cells()) {
+            if (N.degenerate_or_inverted(c)) {
+                std::cout << "TetGen" << std::endl;
+                if (!retetrahedrize(N)) {
+                    return 0;
+                }
+                break;
             }
-            break;
         }
+
+        components = sd(N, algorithm);
     }
 
-    std::vector<VolumeMesh> components = sd(N);
     if (components.size() == 0) {
         return 0;
     }

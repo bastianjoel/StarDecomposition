@@ -1,6 +1,8 @@
 #include "sd.h"
+#include "retet.h"
+#include "sd_boundary_lp.h"
 
-std::vector<VolumeMesh> sd(VolumeMesh& N) {
+std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     for (auto c : N.cells()) {
         if (N.degenerate_or_inverted(c)) {
             std::cout << "Degenerate or inverted tetrahedron in N" << std::endl;
@@ -13,16 +15,25 @@ std::vector<VolumeMesh> sd(VolumeMesh& N) {
         Q[v] = N.position(v).cast<mpq_class>();
     }
 
+    std::vector<Vector3q> centers;
+    std::cout << "Decompose using ";
+    if (algorithm == "tet") {
+        std::cout << "tetrahedron" << std::endl;
+        centers = decompose(N);
+    } else if (algorithm == "boundary") {
+        std::cout << "boundary" << std::endl;
+        StarDecompositionBoundary decomposer(N);
+        centers = decomposer.centers();
+    } else {
+        std::cout << "boundary (lp center move)" << std::endl;
+        StarDecompositionBoundaryLp decomposer(N);
+        centers = decomposer.centers();
+    }
 
-    std::cout << "Decompose" << std::endl;
-    // std::vector<Vector3q> centers = decompose(N);
-    StarDecompositionBoundary decomposer(N);
-    std::vector<Vector3q> centers = decomposer.centers();
     auto cmp = N.property<Cell, int>("cmp");
     int n_cuts = 0;
     for (auto c : N.cells()) {
         int index = cmp[c];
-        // TODO: Reenable
         // ASSERT(index >= 0);
         if (n_cuts < index) {
             n_cuts = index;
@@ -53,10 +64,26 @@ std::vector<VolumeMesh> sd(VolumeMesh& N) {
     return components;
 }
 
-std::vector<VolumeMesh> sd(Mesh& N) {
-    std::cout << "Decompose" << std::endl;
-    // std::vector<Vector3q> centers = decompose(N);
-    StarDecompositionBoundary decomposer(N);
+std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
+    if (algorithm == "tet") {
+        VolumeMesh M;
+        if (!retetrahedrize(N, M)) {
+            return {};
+        }
+
+        return sd(M, algorithm);
+    }
+
+    std::cout << "Decompose using ";
+    if (algorithm == "boundary") {
+        std::cout << "boundary" << std::endl;
+        StarDecompositionBoundary decomposer(N);
+        std::vector<Vector3q> centers = decomposer.centers();
+        return {};
+    }
+
+    std::cout << "boundary (lp center move)" << std::endl;
+    StarDecompositionBoundaryLp decomposer(N);
     std::vector<Vector3q> centers = decomposer.centers();
 
     return {};

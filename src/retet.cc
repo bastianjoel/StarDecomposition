@@ -76,3 +76,74 @@ bool retetrahedrize(VolumeMesh& mesh) {
     }
     return true;
 }
+
+bool retetrahedrize(Mesh& mesh, VolumeMesh& outMesh) {
+    tetgenbehavior behavior;
+    behavior.plc = 1;
+    behavior.quality = 1;
+    behavior.nobisect = 1;
+    behavior.quiet = 1;
+    tetgenio in;
+    in.firstnumber = 0;
+    in.numberofpoints = mesh.n_vertices();
+    in.pointlist = new double[in.numberofpoints * 3];
+    for (auto v : mesh.vertices()) {
+        Eigen::Vector3d p = mesh.point(v);
+        for (int j = 0; j < 3; j++) {
+            in.pointlist[3 * v.idx() + j] = p(j);
+        }
+    }
+    in.numberoffacets = mesh.n_faces();
+    in.facetlist = new tetgenio::facet[in.numberoffacets];
+    for (auto f : mesh.faces()) {
+        tetgenio::polygon polygon;
+        polygon.numberofvertices = 3;
+        polygon.vertexlist = new int[polygon.numberofvertices];
+        int j = 0;
+        for (auto fv : mesh.fv_range(f)) {
+            polygon.vertexlist[j] = fv.idx();
+            j++;
+        }
+        tetgenio::facet facet;
+        facet.numberofpolygons = 1;
+        facet.polygonlist = new tetgenio::polygon[facet.numberofpolygons];
+        facet.polygonlist[0] = polygon;
+        facet.numberofholes = 0;
+        facet.holelist = nullptr;
+        in.facetlist[f.idx()] = facet;
+    }
+    tetgenio out;
+    try {
+        tetrahedralize(&behavior, &in, &out);
+    } catch (int error_code) {
+        std::cout << "TetGen failed, error code " << error_code << std::endl;
+        return false;
+    } catch (...) {
+        std::cout << "TetGen failed" << std::endl;
+        return false;
+    }
+    outMesh = VolumeMesh();
+    std::vector<Vertex> vertices;
+    for (int i = 0; i < out.numberofpoints; i++) {
+        Eigen::Vector3d p;
+        for (int j = 0; j < 3; j++) {
+            p(j) = out.pointlist[3 * i + j];
+        }
+        Vertex v = outMesh.add_vertex(p);
+        vertices.push_back(v);
+    }
+    for (int i = 0; i < out.numberoftetrahedra; i++) {
+        std::vector<Vertex> t;
+        for (int j = 0; j < 4; j++) {
+            t.push_back(vertices[out.tetrahedronlist[4 * i + j]]);
+        }
+        outMesh.add_cell(t, true);
+    }
+    for (auto c : outMesh.cells()) {
+        if (outMesh.degenerate_or_inverted(c)) {
+            std::cout << "TetGen generated degenerate or inverted tetrahedron" << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
