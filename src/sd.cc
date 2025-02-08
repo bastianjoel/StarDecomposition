@@ -24,10 +24,12 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
         std::cout << "boundary" << std::endl;
         StarDecompositionBoundary decomposer(N);
         centers = decomposer.centers();
+        return decomposer.components();
     } else {
         std::cout << "boundary (lp center move)" << std::endl;
         StarDecompositionBoundaryLp decomposer(N);
         centers = decomposer.centers();
+        return decomposer.components();
     }
 
     auto cmp = N.property<Cell, int>("cmp");
@@ -79,12 +81,12 @@ std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
         std::cout << "boundary" << std::endl;
         StarDecompositionBoundary decomposer(N);
         std::vector<Vector3q> centers = decomposer.centers();
-        return {};
+        return decomposer.components();
     }
 
     std::cout << "boundary (lp center move)" << std::endl;
     StarDecompositionBoundaryLp decomposer(N);
     std::vector<Vector3q> centers = decomposer.centers();
 
-    return {};
+    return decomposer.components();
 }

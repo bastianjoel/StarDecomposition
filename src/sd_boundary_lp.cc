@@ -1,6 +1,7 @@
 #include "sd_boundary_lp.h"
 #include "OpenMesh/Core/Mesh/Handles.hh"
 #include "lp.h"
+#include "retet.h"
 #include "tritri.h"
 #include "assertion.h"
 #include "vectorq.h"
@@ -73,7 +74,18 @@ std::vector<VolumeMesh> StarDecompositionBoundaryLp::components() {
         this->run();
     }
 
-    return std::vector<VolumeMesh>();
+    std::vector<VolumeMesh> components;
+    for (auto mesh : _cmpMeshes) {
+        VolumeMesh m;
+        if (!retetrahedrize(mesh, m)) {
+            std::cerr << "Could not tetrahederize component" << std::endl;
+            exit(1);
+        }
+
+        components.push_back(m);
+    }
+
+    return components;
 }
 
 void StarDecompositionBoundaryLp::run() {
@@ -103,8 +115,8 @@ void StarDecompositionBoundaryLp::run() {
         if (_mesh.star_center().first) {
             for (auto f : _mesh.faces()) {
                 _mesh.property(_cmp, f) = cmpNotSetIdx;
-                _cmpMeshes[_cmpIdx] = _mesh;
             }
+            _cmpMeshes[_cmpIdx] = _mesh;
             break;
         }
 
@@ -328,7 +340,8 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHand
         }
     } else {
         for (auto fh : mesh.fh_range(face)) {
-            if (fh.is_boundary()) {
+            if (mesh.opposite_halfedge_handle(fh).is_boundary()) {
+                std::cout << "Boundary edge" << std::endl;
                 auto v0 = mesh.to_vertex_handle(fh);
                 auto v1 = mesh.from_vertex_handle(fh);
                 std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), _cmpFixV };
@@ -342,12 +355,11 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHand
 
     if (valid == false) {
         if (newFaceVertex.is_valid()) {
-            mesh.delete_vertex(_cmpVertexMap[newFaceVertex]);
             _meshVertexMap.erase(_cmpVertexMap[newFaceVertex]);
             _cmpVertexMap.erase(newFaceVertex);
-        } else {
-            txMesh.revert();
         }
+
+        txMesh.revert();
     }
 
     return valid;

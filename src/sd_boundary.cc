@@ -1,5 +1,6 @@
 #include "sd_boundary.h"
 #include "assertion.h"
+#include "retet.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <cmath>
 #include <cstdio>
@@ -70,19 +71,19 @@ std::vector<VolumeMesh> StarDecompositionBoundary::components() {
         this->run();
     }
 
-    return std::vector<VolumeMesh>();
-}
+    std::vector<VolumeMesh> components;
+    for (auto mesh : _cmpMeshes) {
+        VolumeMesh m;
+        if (!retetrahedrize(mesh, m)) {
+            std::cerr << "Could not tetrahederize component" << std::endl;
+            exit(1);
+        }
 
-struct QueueCandidate
-{
-    double priority{};
-    OpenMesh::FaceHandle data{};
-
-    friend bool operator>(QueueCandidate const& lhs, QueueCandidate const& rhs)
-    {
-        return lhs.priority > rhs.priority;
+        components.push_back(m);
     }
-};
+
+    return components;
+}
 
 void StarDecompositionBoundary::run() {
     srand(0);
@@ -110,25 +111,26 @@ void StarDecompositionBoundary::run() {
         add_component(h);
         if (_mesh.star_center().first) {
             for (auto f : _mesh.faces()) {
-                _mesh.property(_cmp, f) = cmpNotSetIdx;
-                _cmpMeshes[_cmpIdx] = _mesh;
+                _mesh.property(_cmp, f) = _cmpIdx;
             }
+            _cmpMeshes[_cmpIdx] = _mesh;
             break;
         }
 
-        std::priority_queue<QueueCandidate, std::vector<QueueCandidate>, std::greater<QueueCandidate>> candidates;
+        std::vector<OpenMesh::FaceHandle> candidates;
         std::set<OpenMesh::FaceHandle> visited;
         for (auto he : _mesh.fh_range(h)) {
             auto oFace = _mesh.opposite_face_handle(he);
             if (oFace.is_valid()) {
-                candidates.push({ 0, oFace});
+                candidates.push_back(oFace);
             }
         }
 
         while (!candidates.empty()) {
             OpenMesh::FaceHandle nextH;
-            nextH = candidates.top().data;
-            candidates.pop();
+            auto nextPtr = candidates.begin() + (rand() % candidates.size());
+            nextH = *nextPtr;
+            candidates.erase(nextPtr);
             bool alreadyChecked = _mesh.property(_cmp, nextH) != cmpNotSetIdx || visited.find(nextH) != visited.end();
             if (alreadyChecked || !add_face_to_cmp(*_currentCmp, nextH)) {
                 visited.insert(nextH);
@@ -141,8 +143,7 @@ void StarDecompositionBoundary::run() {
                 auto oFace = _mesh.opposite_face_handle(he);
                 if (oFace.is_valid() && _mesh.property(_cmp, oFace) == cmpNotSetIdx) {
                     auto dist = _mesh.face_center(oFace) - _cmpCenter;
-                    double distAbs = std::abs(dist[0].get_d()) + std::abs(dist[1].get_d()) + std::abs(dist[2].get_d());
-                    candidates.push({ distAbs, oFace });
+                    candidates.push_back(oFace);
                 }
             }
         }
@@ -190,7 +191,6 @@ void StarDecompositionBoundary::run() {
 
         triangleIntersect = 0; noCenter = 0; other = 0;
 
-        _currentCmp->garbage_collection();
         {
             char buffer[100];
             std::sprintf(buffer, "debug/cmp_%d.obj", _cmpIdx);
@@ -272,6 +272,8 @@ void StarDecompositionBoundary::apply_current_component() {
         }
     }
 
+    _cmpFixV.second = fixVertex;
+    _currentCmp->garbage_collection();
     _mesh.delete_isolated_vertices();
     _mesh.garbage_collection();
 }

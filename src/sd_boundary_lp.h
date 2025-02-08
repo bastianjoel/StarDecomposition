@@ -28,6 +28,8 @@ private:
   std::pair<StarCenterResult, Vector3q> has_valid_center(Mesh& mesh);
 
   Vector3q _cmpFixV = Vector3q();
+  Vector3q _cmpCenter = Vector3q();
+  Vector3q _cmpNormal = Vector3q();
   std::vector<Mesh> _cmpMeshes;
   Mesh add_component(const OpenMesh::FaceHandle& startF);
 
