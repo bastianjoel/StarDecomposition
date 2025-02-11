@@ -45,6 +45,7 @@ int main(int argc, char** argv) {
     std::string N_filename = "";
     std::string out_dir = "";
     std::string algorithm = "";
+    bool benchMode = false;
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
         if (arg.at(0) == '-') {
@@ -54,6 +55,9 @@ int main(int argc, char** argv) {
                 case 'h':
                     print_usage(arg0, path);
                     return 0;
+                case 'b':
+                    benchMode = true;
+                    break;
                 case 'o':
                     i++;
                     if (argc <= i) {
@@ -109,6 +113,10 @@ int main(int argc, char** argv) {
     }
 
     if (components.size() == 0) {
+        return 0;
+    }
+
+    if (benchMode) {
         return 0;
     }
 
