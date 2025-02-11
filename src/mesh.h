@@ -7,6 +7,7 @@
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 #include <OpenMesh/Core/Geometry/EigenVectorT.hh>
 #include "assertion.h"
+#include "bvh.h"
 #include "lp.h"
 #include "vectorq.h"
 #include "tritri.h"
@@ -47,18 +48,33 @@ struct MyTraits : public OpenMesh::DefaultTraits
 class Mesh : public OpenMesh::TriMesh_ArrayKernelT<MyTraits> {
 private:
     OpenMesh::HalfedgeHandle lastBoundaryHalfedge;
+    BVHNode* _bvh = nullptr;
+    OpenMesh::FaceHandle triangle_intersects_bvh(BVHNode* node, const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices);
 public:
+    ~Mesh() {
+        if (_bvh != nullptr) {
+            // delete _bvh;
+        }
+    }
+
     Vector3q face_center(OpenMesh::FaceHandle fh);
-    bool point_on_face(OpenMesh::FaceHandle fh, Vector3q p);
+
     OpenMesh::SmartVertexHandle add_vertex_q(const Vector3q p);
     Vector3q update_normal_q(OpenMesh::FaceHandle fh);
     void set_normal_q(OpenMesh::FaceHandle fh, const Vector3q& n);
+
     void move(OpenMesh::VertexHandle vh, const Vector3q& p);
-    OpenMesh::FaceHandle triangle_intersects(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> borderVertices);
-    bool triangle_intersects(std::vector<Vector3q> t, Vector3q n, std::vector<OpenMesh::VertexHandle> borderVertices, OpenMesh::FaceHandle face);
     std::pair<bool, Vector3q> star_center();
     std::pair<bool, mpq_class> intersection_factor(const Vector3q& p, const Vector3q& dir, OpenMesh::FaceHandle face);
     std::vector<OpenMesh::HalfedgeHandle> boundary_halfedges();
+
+    bool point_on_face(OpenMesh::FaceHandle fh, Vector3q p);
+    OpenMesh::FaceHandle get_face_in_dir(const Vector3q& vPos, const Vector3q& n);
+    OpenMesh::FaceHandle triangle_intersects(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> borderVertices);
+    bool triangle_intersects(std::vector<Vector3q> t, Vector3q n, std::vector<OpenMesh::VertexHandle> borderVertices, OpenMesh::FaceHandle face);
+
+    void generate_bvh();
+    BVHNode* generate_bvh(std::vector<OpenMesh::FaceHandle>& faces, int depth = 0);
 };
 
 template <class Mesh> class TxDeleteT
