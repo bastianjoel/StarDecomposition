@@ -21,6 +21,7 @@ public:
     void reset();
 
     void update();
+    void queue_update();
 
     bool is_closed();
 
@@ -50,6 +51,7 @@ public:
     bool paper_;
 
 private:
+    bool should_update_ = false;
     void frame();
 
     Eigen::Vector3d position(Vertex v);

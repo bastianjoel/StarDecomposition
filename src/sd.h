@@ -13,7 +13,13 @@
 #include "vectorq.h"
 #include "mesh.h"
 
+#ifndef GUI
 std::vector<VolumeMesh> sd(VolumeMesh& N, std::string);
 std::vector<VolumeMesh> sd(Mesh& N, std::string);
+#endif
+#ifdef GUI
+std::vector<VolumeMesh> sd(VolumeMesh& N, std::string, Viewer* viewer);
+std::vector<VolumeMesh> sd(Mesh& N, std::string, Viewer* viewer);
+#endif
 
 std::vector<Vector3q> decompose(VolumeMesh& mesh);

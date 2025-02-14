@@ -54,13 +54,13 @@ std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::V
     }
 
     it = sol.variable_values_begin();
-    std::cout << "Vars: " << CGAL::quotient_truncation(*it) << " " << CGAL::quotient_truncation(*(it + 1)) << " " << CGAL::quotient_truncation(*(it + 2)) << std::endl;
-    std::cout << "Objective: " << sol.objective_value() << std::endl;
-    std::cout << "Point: " << normal[0] << " " << normal[1] << " " << normal[2] << std::endl;
+    // std::cout << "Vars: " << CGAL::quotient_truncation(*it) << " " << CGAL::quotient_truncation(*(it + 1)) << " " << CGAL::quotient_truncation(*(it + 2)) << std::endl;
+    // std::cout << "Objective: " << sol.objective_value() << std::endl;
+    // std::cout << "Point: " << normal[0] << " " << normal[1] << " " << normal[2] << std::endl;
     // std::cout << "Solution: " << sol << std::endl;
-    std::cout << "Solves: " << sol.is_valid() << std::endl;
+    // std::cout << "Solves: " << sol.is_valid() << std::endl;
     if (sol.is_infeasible()) {
-        std::cout << "Infeasible" << std::endl;
+        // std::cout << "Infeasible" << std::endl;
         return std::make_pair(INVALID, Eigen::Vector3d::Zero());
     }
 

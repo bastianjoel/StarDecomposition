@@ -1,3 +1,4 @@
+#include <iostream>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -203,6 +204,10 @@ void Viewer::reset() {
     transformation_matrix_.block<3, 1>(0, 3) = -c;
 
     update();
+}
+
+void Viewer::queue_update() {
+    should_update_ = true;
 }
 
 void Viewer::update() {
@@ -585,7 +590,7 @@ void Viewer::update() {
         glBindVertexArray(extra_vao_);
 
         glBindBuffer(GL_ARRAY_BUFFER, extra_position_buffer_);
-        glBufferData(GL_ARRAY_BUFFER, extra_positions.size() * sizeof(float), extra_positions.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, extra_positions.size() * sizeof(float), extra_positions.data(), GL_DYNAMIC_DRAW);
         glVertexAttribPointer(position_location, 3, GL_FLOAT, GL_FALSE, 0, 0);
         glEnableVertexAttribArray(position_location);
         glVertexAttribPointer(centroid_location, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -593,21 +598,21 @@ void Viewer::update() {
 
         if (n_extra_indices_ > 0) {
             glBindBuffer(GL_ARRAY_BUFFER, extra_normal_buffer_);
-            glBufferData(GL_ARRAY_BUFFER, extra_normals.size() * sizeof(float), extra_normals.data(), GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, extra_normals.size() * sizeof(float), extra_normals.data(), GL_DYNAMIC_DRAW);
             glVertexAttribPointer(normal_location, 3, GL_FLOAT, GL_TRUE, 0, 0);
             glEnableVertexAttribArray(normal_location);
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, extra_color_buffer_);
-        glBufferData(GL_ARRAY_BUFFER, extra_colors.size() * sizeof(float), extra_colors.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, extra_colors.size() * sizeof(float), extra_colors.data(), GL_DYNAMIC_DRAW);
         glVertexAttribPointer(color_location, 3, GL_FLOAT, GL_FALSE, 0, 0);
         glEnableVertexAttribArray(color_location);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, extra_index_buffer_);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, n_extra_indices_ * sizeof(int), extra_indices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, n_extra_indices_ * sizeof(int), extra_indices.data(), GL_DYNAMIC_DRAW);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, extra_line_index_buffer_);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, n_extra_line_indices_ * sizeof(int), extra_line_indices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, n_extra_line_indices_ * sizeof(int), extra_line_indices.data(), GL_DYNAMIC_DRAW);
     }
 }
 
@@ -1032,7 +1037,7 @@ void Viewer::frame() {
                         std::cout << "Vertex " << idx << std::endl;
                     }
                 }
-                update();
+                // update();
             } else {
                 s(2) = 0;
             }
@@ -1282,6 +1287,11 @@ void Viewer::frame() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(window_);
+
+    if (should_update_) {
+        update();
+        should_update_ = false;
+    }
 }
 
 Eigen::Vector3d Viewer::position(Vertex v) {

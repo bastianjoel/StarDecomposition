@@ -1,5 +1,6 @@
 #include "mesh.h"
 #include <algorithm>
+#include <set>
 
 Vector3q Mesh::face_center(OpenMesh::FaceHandle fh) {
     Vector3q center = Vector3q(0, 0, 0);
@@ -262,11 +263,16 @@ void Mesh::generate_bvh() {
 }
 
 BVHNode* Mesh::generate_bvh(std::vector<OpenMesh::FaceHandle>& faces, int depth) {
-    std::vector<Vector3q> positions;
+    std::set<OpenMesh::VertexHandle> vertices;
     for (auto f : faces) {
         for (auto v : fv_range(f)) {
-            positions.push_back(data(v).point_q());
+            vertices.insert(v);
         }
+    }
+
+    std::vector<Vector3q> positions;
+    for (auto v : vertices) {
+        positions.push_back(data(v).point_q());
     }
     AABB aabb(positions);
     BVHNode* node = new BVHNode(aabb, faces);

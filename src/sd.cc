@@ -2,7 +2,13 @@
 #include "retet.h"
 #include "sd_boundary_lp.h"
 
-std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
+std::vector<VolumeMesh> sd(
+        VolumeMesh& N,
+        std::string algorithm
+#ifdef GUI
+        , Viewer* viewer
+#endif
+    ) {
     for (auto c : N.cells()) {
         if (N.degenerate_or_inverted(c)) {
             std::cout << "Degenerate or inverted tetrahedron in N" << std::endl;
@@ -28,6 +34,9 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     } else {
         std::cout << "boundary (lp center move)" << std::endl;
         StarDecompositionBoundaryLp decomposer(N);
+#ifdef GUI
+        decomposer.set_viewer(viewer);
+#endif
         centers = decomposer.centers();
         return decomposer.components();
     }
@@ -66,14 +75,25 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     return components;
 }
 
-std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
+std::vector<VolumeMesh> sd(
+        Mesh& N,
+        std::string algorithm
+#ifdef GUI
+        , Viewer* viewer
+#endif
+        ) {
     if (algorithm == "tet") {
         VolumeMesh M;
         if (!retetrahedrize(N, M)) {
             return {};
         }
 
+#ifdef GUI
+        return sd(M, algorithm, viewer);
+#endif
+#ifndef GUI
         return sd(M, algorithm);
+#endif
     }
 
     std::cout << "Decompose using ";
@@ -86,6 +106,9 @@ std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
 
     std::cout << "boundary (lp center move)" << std::endl;
     StarDecompositionBoundaryLp decomposer(N);
+#ifdef GUI
+    decomposer.set_viewer(viewer);
+#endif
     std::vector<Vector3q> centers = decomposer.centers();
 
     return decomposer.components();

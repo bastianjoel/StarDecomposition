@@ -94,7 +94,12 @@ int main(int argc, char** argv) {
     if (extension == "obj" || extension == "stl" || extension == "ply") {
         Mesh N;
         OpenMesh::IO::read_mesh(N, N_filename);
+#ifndef GUI
         components = sd(N, algorithm);
+#endif
+#ifdef GUI
+        components = sd(N, algorithm, &viewer);
+#endif
     } else {
         int orientation = 0;
         VolumeMesh N = read(N_filename, orientation);
@@ -109,7 +114,33 @@ int main(int argc, char** argv) {
             }
         }
 
+#ifndef GUI
         components = sd(N, algorithm);
+#endif
+#ifdef GUI
+        auto clr = viewer_mesh.property<Cell, Eigen::Vector3d>("clr", {1, 1, 1});
+        VolumeMesh& Mi = N;
+        Eigen::Vector3d color = {1, 1, 1};
+        auto vmap = Mi.property<Vertex, Vertex>();
+        for (auto c : Mi.cells()) {
+            std::vector<Vertex> vertices;
+            for (auto cv : Mi.tet_vertices(c)) {
+                if (!viewer_mesh.is_valid(vmap[cv])) {
+                    Vertex v = viewer_mesh.add_vertex(Mi.position(cv));
+                    vmap[cv] = v;
+                }
+                vertices.push_back(vmap[cv]);
+            }
+            clr[viewer_mesh.add_cell(vertices, true)] = color;
+        }
+        std::thread viewer_thread([path]() {
+            while(true) {
+                viewer.start(callback, path, "Star Decomposition Maps");
+            }
+        });
+        components = sd(N, algorithm, &viewer);
+        viewer_thread.join();
+#endif
     }
 
     if (components.size() == 0) {
@@ -163,6 +194,6 @@ int main(int argc, char** argv) {
             clr[viewer_mesh.add_cell(vertices, true)] = color;
         }
     }
-    viewer.start(callback, path, "Star Decomposition Maps");
+    // viewer_thread.join();
 #endif
 }

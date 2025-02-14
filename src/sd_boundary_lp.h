@@ -5,6 +5,10 @@
 #include "volume_mesh.h"
 #include "vectorq.h"
 #include <utility>
+#ifdef GUI
+#include "viewer.h"
+#endif
+
 
 class StarDecompositionBoundaryLp {
 public:
@@ -12,7 +16,13 @@ public:
   StarDecompositionBoundaryLp(Mesh& m);
   std::vector<Vector3q> centers();
   std::vector<VolumeMesh> components();
+#ifdef GUI
+  void set_viewer(Viewer* viewer) { _viewer = viewer; }
+#endif
 private:
+#ifdef GUI
+  Viewer* _viewer = nullptr;
+#endif
   VolumeMesh _originalMesh;
 
   Mesh _mesh = Mesh();
@@ -26,13 +36,13 @@ private:
   Vector3q _cmpNormal = Vector3q();
   Vector3q _cmpCenter = Vector3q();
   Vector3q _cmpFixV = Vector3q();
-  std::vector<Mesh> _cmpMeshes;
-  Mesh add_component(const OpenMesh::FaceHandle& startF);
 
-  // Global component meshes
   Mesh* _currentCmp = nullptr;
+  std::vector<Mesh> _cmpMeshes;
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _meshVertexMap;
+
+  Mesh add_component(const OpenMesh::FaceHandle& startF);
   bool add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& hf);
   void apply_current_component();
 };

@@ -86,6 +86,9 @@ std::vector<VolumeMesh> StarDecompositionBoundary::components() {
 }
 
 void StarDecompositionBoundary::run() {
+    _mesh.generate_bvh();
+    std::cout << "Start decomposition" << std::endl;
+
     srand(0);
 
     _cmpIdx = 0;
@@ -118,6 +121,7 @@ void StarDecompositionBoundary::run() {
         }
 
         std::vector<OpenMesh::FaceHandle> candidates;
+        std::vector<OpenMesh::FaceHandle> candidates2;
         std::set<OpenMesh::FaceHandle> visited;
         for (auto he : _mesh.fh_range(h)) {
             auto oFace = _mesh.opposite_face_handle(he);
@@ -126,24 +130,65 @@ void StarDecompositionBoundary::run() {
             }
         }
 
-        while (!candidates.empty()) {
+        int added = 0;
+        while (!candidates.empty() || !candidates2.empty()) {
+            if (candidates.empty() && candidates2.empty() && added > 0) {
+                added = 0;
+                auto boundary = _currentCmp->boundary_halfedges();
+                for (auto h : boundary) {
+                    auto v0 = _meshVertexMap[_currentCmp->from_vertex_handle(h)];
+                    auto v1 = _meshVertexMap[_currentCmp->to_vertex_handle(h)];
+                    auto he = _mesh.find_halfedge(v0, v1);
+                    if (he.is_valid()) {
+                        auto f = _mesh.face_handle(he);
+                        if (f.is_valid()) {
+                            candidates.push_back(f);
+                        }
+                    }
+                }
+                std::cout << "Retry" << std::endl;
+            }
+
             OpenMesh::FaceHandle nextH;
-            auto nextPtr = candidates.begin() + (rand() % candidates.size());
-            nextH = *nextPtr;
-            candidates.erase(nextPtr);
+            if (candidates2.empty()) {
+                auto nextPtr = candidates.begin() + (rand() % candidates.size());
+                nextH = *nextPtr;
+                candidates.erase(nextPtr);
+            } else {
+                nextH = candidates2.front();
+                candidates2.erase(candidates2.begin());
+            }
+
             bool alreadyChecked = _mesh.property(_cmp, nextH) != cmpNotSetIdx || visited.find(nextH) != visited.end();
             if (alreadyChecked || !add_face_to_cmp(*_currentCmp, nextH)) {
                 visited.insert(nextH);
                 continue;
             }
 
+            added++;
             visited.clear();
             _mesh.property(_cmp, nextH) = _cmpIdx;
             for (auto he : _mesh.fh_range(nextH)) {
                 auto oFace = _mesh.opposite_face_handle(he);
                 if (oFace.is_valid() && _mesh.property(_cmp, oFace) == cmpNotSetIdx) {
-                    auto dist = _mesh.face_center(oFace) - _cmpCenter;
-                    candidates.push_back(oFace);
+                    bool between = false;
+                    for (auto fh : _mesh.fh_range(oFace)) {
+                        auto hv = _mesh.from_vertex_handle(fh);
+                        auto hvTo = _mesh.to_vertex_handle(fh);
+                        if (fh != _mesh.opposite_halfedge_handle(he) && _cmpVertexMap[hv].is_valid() && _cmpVertexMap[hvTo].is_valid()) {
+                            auto h = _currentCmp->find_halfedge(_cmpVertexMap[hv], _cmpVertexMap[hvTo]);
+                            if (h.is_valid()) {
+                                between = true;
+                            }
+                            break;
+                        }
+                    }
+
+                    if (between) {
+                        candidates2.push_back(oFace);
+                    } else {
+                        candidates.push_back(oFace);
+                    }
                 }
             }
         }
@@ -156,10 +201,10 @@ void StarDecompositionBoundary::run() {
             }
         }
         int amount = (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
-        if (amount < -10 || (resets > 3 && amount <= 0.3 * bestSinceReset)) {
+        if (amount < -10 || (resets > 3 && amount <= 0.7 * bestSinceReset && amount < 0)) {
             std::cout << "Cmp " << _cmpIdx << " amount faces: " << _currentCmp->faces().to_vector().size() << " full mesh size change: " << (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
             std::cout << " resets: " << resets << " full mesh size: " << _mesh.n_faces() << std::endl;
-            std::cout << "Triangle intersect: " << triangleIntersect << " No center: " << noCenter << " Other: " << other << std::endl;
+            // std::cout << "Triangle intersect: " << triangleIntersect << " No center: " << noCenter << " Other: " << other << std::endl;
             apply_current_component();
             {
                 char buffer[100];
@@ -173,7 +218,7 @@ void StarDecompositionBoundary::run() {
             resets = 0;
             bestSinceReset = 0;
         } else {
-            std::cout << "\tTriangle intersect: " << triangleIntersect << " No center: " << noCenter << " Other: " << other << std::endl;
+            // std::cout << "\tTriangle intersect: " << triangleIntersect << " No center: " << noCenter << " Other: " << other << std::endl;
             for (auto f : _mesh.faces()) {
                 if (_mesh.property(_cmp, f) == _cmpIdx) {
                     _mesh.property(_cmp, f) = cmpNotSetIdx;
@@ -201,7 +246,7 @@ void StarDecompositionBoundary::run() {
         }
     }
 
-    std::cout << "Num components: " << _cmpIdx + 1 << std::endl;
+    std::cout << _cmpIdx + 1 << " components" << std::endl;
     {
         char buffer[100];
         std::sprintf(buffer, "debug/cmp_%d.obj", _cmpIdx);
@@ -276,6 +321,7 @@ void StarDecompositionBoundary::apply_current_component() {
     _currentCmp->garbage_collection();
     _mesh.delete_isolated_vertices();
     _mesh.garbage_collection();
+    _mesh.generate_bvh();
 }
 
 bool StarDecompositionBoundary::move_fix_vertex(Mesh& mesh, bool shrink) {
@@ -447,7 +493,7 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
         }
         shouldCheck = true;
     } else if (deletedHelperFaces == 1 && !newFaceVertex.is_valid()) {
-        std::cout << "Multi add" << std::endl;
+        // std::cout << "Multi add" << std::endl;
         // TODO: Add enclosed faces
         // 1. Determine open edges (2)
         // 2. Check number of enclosed faces + determine enclosed faces
