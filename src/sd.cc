@@ -2,13 +2,64 @@
 #include "retet.h"
 #include "sd_boundary_lp.h"
 
-std::vector<VolumeMesh> sd(
-        VolumeMesh& N,
-        std::string algorithm
 #ifdef GUI
-        , Viewer* viewer
+#include "viewer.h"
+
+VolumeMesh viewer_mesh;
+Viewer viewer(viewer_mesh);
+
+bool show_coordinate_system = false;
+
+void callback() {
+    if (ImGui::IsKeyPressed(ImGuiKey_B)) {
+        viewer.show_boundary_ = !viewer.show_boundary_;
+        viewer.update();
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_M)) {
+        viewer.show_colored_ = !viewer.show_colored_;
+        viewer.update();
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_Q)) {
+        viewer.reset();
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_X)) {
+        show_coordinate_system = !show_coordinate_system;
+        viewer.clear_extras();
+        if (show_coordinate_system) {
+            viewer.add_coordinate_system();
+        }
+        viewer.update();
+    }
+}
 #endif
-    ) {
+
+std::thread viewer_thread([]() {
+    viewer.start(callback, "..", "Star Decomposition Maps");
+});
+
+/*
+#ifdef GUI
+        auto clr = viewer_mesh.property<Cell, Eigen::Vector3d>("clr", {1, 1, 1});
+        VolumeMesh& Mi = N;
+        Eigen::Vector3d color = {1, 1, 1};
+        auto vmap = Mi.property<Vertex, Vertex>();
+        for (auto c : Mi.cells()) {
+            std::vector<Vertex> vertices;
+            for (auto cv : Mi.tet_vertices(c)) {
+                if (!viewer_mesh.is_valid(vmap[cv])) {
+                    Vertex v = viewer_mesh.add_vertex(Mi.position(cv));
+                    vmap[cv] = v;
+                }
+                vertices.push_back(vmap[cv]);
+            }
+            clr[viewer_mesh.add_cell(vertices, true)] = color;
+        }
+        components = sd(N, algorithm, &viewer);
+        viewer_thread.join();
+#endif
+*/
+
+std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     for (auto c : N.cells()) {
         if (N.degenerate_or_inverted(c)) {
             std::cout << "Degenerate or inverted tetrahedron in N" << std::endl;
@@ -20,6 +71,24 @@ std::vector<VolumeMesh> sd(
     for (auto v : N.vertices()) {
         Q[v] = N.position(v).cast<mpq_class>();
     }
+
+#ifdef GUI
+        auto clr = viewer_mesh.property<Cell, Eigen::Vector3d>("clr", {1, 1, 1});
+        VolumeMesh& Mi = N;
+        Eigen::Vector3d color = {1, 1, 1};
+        auto vmap = Mi.property<Vertex, Vertex>();
+        for (auto c : Mi.cells()) {
+            std::vector<Vertex> vertices;
+            for (auto cv : Mi.tet_vertices(c)) {
+                if (!viewer_mesh.is_valid(vmap[cv])) {
+                    Vertex v = viewer_mesh.add_vertex(Mi.position(cv));
+                    vmap[cv] = v;
+                }
+                vertices.push_back(vmap[cv]);
+            }
+            clr[viewer_mesh.add_cell(vertices, true)] = color;
+        }
+#endif
 
     std::vector<Vector3q> centers;
     std::cout << "Decompose using ";
@@ -34,9 +103,7 @@ std::vector<VolumeMesh> sd(
     } else {
         std::cout << "boundary (lp center move)" << std::endl;
         StarDecompositionBoundaryLp decomposer(N);
-#ifdef GUI
-        decomposer.set_viewer(viewer);
-#endif
+        decomposer.set_viewer(&viewer);
         centers = decomposer.centers();
         return decomposer.components();
     }
@@ -72,28 +139,30 @@ std::vector<VolumeMesh> sd(
         N.remove_cells(cells);
     }
 
+    
+#ifdef GUI
+    viewer_thread.join();
+#endif
     return components;
 }
 
-std::vector<VolumeMesh> sd(
-        Mesh& N,
-        std::string algorithm
+std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
 #ifdef GUI
-        , Viewer* viewer
+    VolumeMesh M;
+    if (!retetrahedrize(N, M)) {
+        return {};
+    }
+
+    return sd(M, algorithm);
 #endif
-        ) {
+#ifndef GUI
     if (algorithm == "tet") {
         VolumeMesh M;
         if (!retetrahedrize(N, M)) {
             return {};
         }
 
-#ifdef GUI
-        return sd(M, algorithm, viewer);
-#endif
-#ifndef GUI
         return sd(M, algorithm);
-#endif
     }
 
     std::cout << "Decompose using ";
@@ -106,10 +175,9 @@ std::vector<VolumeMesh> sd(
 
     std::cout << "boundary (lp center move)" << std::endl;
     StarDecompositionBoundaryLp decomposer(N);
-#ifdef GUI
-    decomposer.set_viewer(viewer);
-#endif
+    decomposer.set_viewer(&viewer);
     std::vector<Vector3q> centers = decomposer.centers();
 
     return decomposer.components();
+#endif
 }

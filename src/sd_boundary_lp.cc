@@ -213,19 +213,44 @@ void StarDecompositionBoundaryLp::apply_current_component() {
     }
 
     Mesh& cmpMesh = *_currentCmp;
-    auto cmpFixVertex = cmpMesh.add_vertex_q(_cmpFixV);
     for (auto h : cmpMesh.halfedges()) {
         if (cmpMesh.is_boundary(h)) {
-            cmpMesh.add_face(cmpMesh.from_vertex_handle(h), cmpMesh.to_vertex_handle(h), cmpFixVertex);
+            std::vector<OpenMesh::HalfedgeHandle> boundary;
+            OpenMesh::HalfedgeHandle next = h;
+            do {
+                boundary.push_back(next);
+                next = cmpMesh.next_halfedge_handle(next);
+            } while (next != h);
+
+            std::cout << "Boundary size: " << boundary.size() << std::endl;
+            auto cmpFixVertex = cmpMesh.add_vertex_q(_cmpFixV);
+            for (auto bH : boundary) {
+                cmpMesh.add_face(cmpMesh.from_vertex_handle(bH), cmpMesh.to_vertex_handle(bH), cmpFixVertex);
+            }
+            // TODO: Move fix vertex
         }
     }
 
-    auto fixVertex = _mesh.add_vertex_q(_cmpFixV);
+    // TODO: Prevent complex endges
     for (auto h : _mesh.halfedges()) {
         if (_mesh.is_boundary(h)) {
-            auto f = _mesh.add_face(_mesh.from_vertex_handle(h), _mesh.to_vertex_handle(h), fixVertex);
-            _mesh.update_normal_q(f);
-            _mesh.property(_cmp, f) = cmpNotSetIdx;
+            std::vector<OpenMesh::HalfedgeHandle> boundary;
+            OpenMesh::HalfedgeHandle next = h;
+            do {
+                boundary.push_back(next);
+                next = _mesh.next_halfedge_handle(next);
+            } while (next != h);
+
+            auto fixVertex = _mesh.add_vertex_q(_cmpFixV);
+            for (auto bH : boundary) {
+                auto f = _mesh.add_face(_mesh.from_vertex_handle(bH), _mesh.to_vertex_handle(bH), fixVertex);
+                if (f.is_valid()) {
+                    _mesh.update_normal_q(f);
+                    _mesh.property(_cmp, f) = cmpNotSetIdx;
+                }
+
+                // TODO: Move fix vertex
+            }
         }
     }
 

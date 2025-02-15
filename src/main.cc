@@ -5,33 +5,6 @@
 
 #ifdef GUI
 #include "viewer.h"
-
-VolumeMesh viewer_mesh;
-Viewer viewer(viewer_mesh);
-
-bool show_coordinate_system = false;
-
-void callback() {
-    if (ImGui::IsKeyPressed(ImGuiKey_B)) {
-        viewer.show_boundary_ = !viewer.show_boundary_;
-        viewer.update();
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_M)) {
-        viewer.show_colored_ = !viewer.show_colored_;
-        viewer.update();
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_Q)) {
-        viewer.reset();
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_X)) {
-        show_coordinate_system = !show_coordinate_system;
-        viewer.clear_extras();
-        if (show_coordinate_system) {
-            viewer.add_coordinate_system();
-        }
-        viewer.update();
-    }
-}
 #endif
 
 void print_usage(std::string arg0, std::string path) {
@@ -94,12 +67,7 @@ int main(int argc, char** argv) {
     if (extension == "obj" || extension == "stl" || extension == "ply") {
         Mesh N;
         OpenMesh::IO::read_mesh(N, N_filename);
-#ifndef GUI
         components = sd(N, algorithm);
-#endif
-#ifdef GUI
-        components = sd(N, algorithm, &viewer);
-#endif
     } else {
         int orientation = 0;
         VolumeMesh N = read(N_filename, orientation);
@@ -114,33 +82,7 @@ int main(int argc, char** argv) {
             }
         }
 
-#ifndef GUI
         components = sd(N, algorithm);
-#endif
-#ifdef GUI
-        auto clr = viewer_mesh.property<Cell, Eigen::Vector3d>("clr", {1, 1, 1});
-        VolumeMesh& Mi = N;
-        Eigen::Vector3d color = {1, 1, 1};
-        auto vmap = Mi.property<Vertex, Vertex>();
-        for (auto c : Mi.cells()) {
-            std::vector<Vertex> vertices;
-            for (auto cv : Mi.tet_vertices(c)) {
-                if (!viewer_mesh.is_valid(vmap[cv])) {
-                    Vertex v = viewer_mesh.add_vertex(Mi.position(cv));
-                    vmap[cv] = v;
-                }
-                vertices.push_back(vmap[cv]);
-            }
-            clr[viewer_mesh.add_cell(vertices, true)] = color;
-        }
-        std::thread viewer_thread([path]() {
-            while(true) {
-                viewer.start(callback, path, "Star Decomposition Maps");
-            }
-        });
-        components = sd(N, algorithm, &viewer);
-        viewer_thread.join();
-#endif
     }
 
     if (components.size() == 0) {
@@ -174,6 +116,11 @@ int main(int argc, char** argv) {
     */
 
 #ifdef GUI
+    VolumeMesh viewer_mesh;
+    Viewer viewer(viewer_mesh);
+
+    bool show_coordinate_system = false;
+
     auto clr = viewer_mesh.property<Cell, Eigen::Vector3d>("clr", {1, 1, 1});
     std::random_device rd;
     std::default_random_engine gen(rd());
@@ -194,6 +141,27 @@ int main(int argc, char** argv) {
             clr[viewer_mesh.add_cell(vertices, true)] = color;
         }
     }
-    // viewer_thread.join();
+
+    viewer.start([&viewer, &show_coordinate_system]() {
+        if (ImGui::IsKeyPressed(ImGuiKey_B)) {
+            viewer.show_boundary_ = !viewer.show_boundary_;
+            viewer.update();
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_M)) {
+            viewer.show_colored_ = !viewer.show_colored_;
+            viewer.update();
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Q)) {
+            viewer.reset();
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_X)) {
+            show_coordinate_system = !show_coordinate_system;
+            viewer.clear_extras();
+            if (show_coordinate_system) {
+                viewer.add_coordinate_system();
+            }
+            viewer.update();
+        }
+    }, path, "Star Decomposition Maps");
 #endif
 }
