@@ -8,6 +8,8 @@
 #include <cstdio>
 #include <map>
 #include <OpenMesh/Core/IO/MeshIO.hh>
+#include <set>
+#include <unistd.h>
 
 #define FACE_SELECTION_ORDERED 1
 
@@ -133,7 +135,7 @@ void StarDecompositionBoundaryLp::run() {
                 continue;
             }
 
-            std::cout << "." << std::flush;
+            // std::cout << "." << std::flush;
             visited.clear();
             _viewer->queue_update();
             _mesh.property(_cmp, nextH) = _cmpIdx;
@@ -231,15 +233,94 @@ void StarDecompositionBoundaryLp::apply_current_component() {
         }
     }
 
-    // TODO: Prevent complex endges
+    int cls = 0;
+    // TODO: Prevent complex edges
     for (auto h : _mesh.halfedges()) {
         if (_mesh.is_boundary(h)) {
-            std::vector<OpenMesh::HalfedgeHandle> boundary;
+            std::set<OpenMesh::VertexHandle> boundaryVertices;
+            std::vector<std::vector<OpenMesh::HalfedgeHandle>> boundaries = {{}};
             OpenMesh::HalfedgeHandle next = h;
-            do {
-                boundary.push_back(next);
-                next = _mesh.next_halfedge_handle(next);
-            } while (next != h);
+            std::vector<Vector3q> centers = { Vector3q::Zero() };
+
+            {
+                Vector3q* center = &centers[0];
+                std::vector<OpenMesh::HalfedgeHandle>* boundary = &boundaries[0];
+                do {
+                    if (boundaryVertices.find(_mesh.to_vertex_handle(next)) != boundaryVertices.end()) {
+                        *center /= boundaries[boundaries.size() - 1].size();
+                        boundaries.push_back(std::vector<OpenMesh::HalfedgeHandle>());
+                        centers.push_back(Vector3q::Zero());
+                        center = &centers[centers.size() - 1];
+                        boundary = &boundaries[boundaries.size() - 1];
+                    }
+                    boundaryVertices.insert(_mesh.to_vertex_handle(next));
+
+                    boundary->push_back(next);
+                    next = _mesh.next_halfedge_handle(next);
+                    *center += _mesh.data(_mesh.to_vertex_handle(next)).point_q();
+                } while (next != h);
+
+                *center /= boundary->size();
+            }
+
+            Vector3q& center = centers[centers.size() - 1];
+            std::vector<OpenMesh::HalfedgeHandle>& boundary = boundaries[boundaries.size() - 1];
+            if (boundaries.size() > 1) {
+                int i = 0;
+                while (_mesh.to_vertex_handle(boundaries[0][i]) != _mesh.to_vertex_handle(boundary[0])) {
+                    boundary.push_back(boundaries[0][i]);
+                    i++;
+                }
+
+                boundaries[0].erase(boundaries[0].begin(), boundaries[0].begin() + i);
+            }
+
+                sleep(10000);
+            if (boundaries.size() > 1) {
+                _viewer->clear_extras();
+                int i = 0;
+                for (auto bd : boundaries) {
+                    for (auto h : bd) {
+                        std::vector<Eigen::Vector3d> lPos;
+                        for (auto fh : _mesh.fh_range(_mesh.face_handle(_mesh.opposite_halfedge_handle(h)))) {
+                            lPos.push_back(_mesh.point(_mesh.from_vertex_handle(fh)));
+                        }
+
+                        Eigen::Vector3d color = { 0, 0, 0};
+                        color[i] = 1;
+                        _viewer->add_triangle(lPos, color);
+                    }
+                    i = (i + 1) % 3;
+                }
+                _viewer->update();
+            }
+
+            for (auto h : boundary) {
+                std::cout << _mesh.to_vertex_handle(h) << " " << std::flush;
+            }
+            std::cout << std::endl;
+
+            const int segments = 8;
+            Vector3q dir = (_cmpFixV - center) / segments;
+            Vector3q fixPoint;
+            for (int i = 0; i < segments;  i++) {
+                fixPoint = center + dir;
+                bool valid = true;
+                for (auto bH : boundary) {
+                    auto v0 = _mesh.to_vertex_handle(bH);
+                    auto v1 = _mesh.from_vertex_handle(bH);
+                    std::vector<Vector3q> t = { _mesh.data(v0).point_q(), _mesh.data(v1).point_q(), fixPoint };
+                    auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
+                    if (intersects.is_valid()) {
+                        valid = false;
+                        break;
+                    }
+                }
+
+                if (valid) {
+                    break;
+                }
+            }
 
             auto fixVertex = _mesh.add_vertex_q(_cmpFixV);
             for (auto bH : boundary) {
@@ -247,10 +328,13 @@ void StarDecompositionBoundaryLp::apply_current_component() {
                 if (f.is_valid()) {
                     _mesh.update_normal_q(f);
                     _mesh.property(_cmp, f) = cmpNotSetIdx;
+                } else {
+                    std::cout << "Could not add face in cls " << cls << " for vertices " << _mesh.from_vertex_handle(bH).idx() << " " << _mesh.to_vertex_handle(bH).idx() << std::endl;
                 }
 
                 // TODO: Move fix vertex
             }
+            cls++;
         }
     }
 
