@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mesh.h"
 #include <Eigen/Dense>
 
 // >--- Miscellaneous utility functions
@@ -241,6 +242,8 @@ public:
     Halfedge boundary_out(Vertex v);
 
     bool degenerate_or_inverted(::Cell c);
+
+    Mesh to_mesh();
 
 private:
     int n_tmp_propertys;

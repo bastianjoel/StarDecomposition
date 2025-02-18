@@ -1,6 +1,7 @@
 #include "sd_boundary.h"
 #include "assertion.h"
 #include "retet.h"
+#include "sd.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <cmath>
 #include <cstdio>
@@ -13,7 +14,7 @@
 
 const int cmpNotSetIdx = -1;
 
-StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _computed(false), _wasVolumeMesh(false), _mesh(m) {
+StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _computed(false), _mesh(m) {
     _mesh.add_property(_cmp);
     _mesh.add_property(_originalHf);
     for (auto v : _mesh.vertices()) {
@@ -31,7 +32,7 @@ StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _computed(false)
     }
 }
 
-StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) : _computed(false), _wasVolumeMesh(true), _originalMesh(mesh) {
+StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) : _computed(false), _originalMesh(mesh) {
     _mesh.add_property(_cmp);
     _mesh.add_property(_originalHf);
 
@@ -51,6 +52,8 @@ StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) : _comput
         _mesh.property(_cmp, face) = cmpNotSetIdx;
         _mesh.property(_originalHf, face) = hf;
     }
+    _mesh.delete_isolated_vertices();
+    _mesh.garbage_collection();
 
     if (!OpenMesh::IO::write_mesh(_mesh, "debug/original.obj")) {
         std::cerr << "write error\n";
@@ -71,18 +74,7 @@ std::vector<VolumeMesh> StarDecompositionBoundary::components() {
         this->run();
     }
 
-    std::vector<VolumeMesh> components;
-    for (auto mesh : _cmpMeshes) {
-        VolumeMesh m;
-        if (!retetrahedrize(mesh, m)) {
-            std::cerr << "Could not tetrahederize component" << std::endl;
-            exit(1);
-        }
-
-        components.push_back(m);
-    }
-
-    return components;
+    return _cmpVolMeshes;
 }
 
 void StarDecompositionBoundary::run() {
@@ -131,22 +123,21 @@ void StarDecompositionBoundary::run() {
         }
 
         int added = 0;
-        while (!candidates.empty() || !candidates2.empty()) {
+        while (!candidates.empty() || !candidates2.empty() || added > 0) {
             if (candidates.empty() && candidates2.empty() && added > 0) {
                 added = 0;
-                auto boundary = _currentCmp->boundary_halfedges();
-                for (auto h : boundary) {
+                for (auto hh : _currentCmp->voh_range(_cmpFixV.second)) {
+                    auto h = _currentCmp->next_halfedge_handle(hh);
                     auto v0 = _meshVertexMap[_currentCmp->from_vertex_handle(h)];
                     auto v1 = _meshVertexMap[_currentCmp->to_vertex_handle(h)];
                     auto he = _mesh.find_halfedge(v0, v1);
                     if (he.is_valid()) {
                         auto f = _mesh.face_handle(he);
-                        if (f.is_valid()) {
+                        if (f.is_valid() && _mesh.property(_cmp, f) == cmpNotSetIdx) {
                             candidates.push_back(f);
                         }
                     }
                 }
-                std::cout << "Retry" << std::endl;
             }
 
             OpenMesh::FaceHandle nextH;
@@ -166,6 +157,7 @@ void StarDecompositionBoundary::run() {
             }
 
             added++;
+            _viewer->queue_update();
             visited.clear();
             _mesh.property(_cmp, nextH) = _cmpIdx;
             for (auto he : _mesh.fh_range(nextH)) {
@@ -217,6 +209,17 @@ void StarDecompositionBoundary::run() {
             startOffset = 0;
             resets = 0;
             bestSinceReset = 0;
+#ifdef GUI
+            _viewer->clear_extras();
+#endif
+        } else if (resets > 10) {
+            _cmpMeshes.pop_back();
+            auto components = sd(_mesh, "tet");
+            for (auto m : components) {
+                _cmpVolMeshes.push_back(m);
+            }
+            _cmpIdx = _cmpMeshes.size() - 1;
+            break;
         } else {
             // std::cout << "\tTriangle intersect: " << triangleIntersect << " No center: " << noCenter << " Other: " << other << std::endl;
             for (auto f : _mesh.faces()) {
@@ -256,14 +259,16 @@ void StarDecompositionBoundary::run() {
         }
     }
 
-    this->_computed = true;
-    if (this->_wasVolumeMesh) {
-        auto cmp = _originalMesh.property<Cell, int>("cmp", -1);
-        for (auto f : _mesh.faces()) {
-            auto oF = _originalMesh.opposite_halfface_handle(_mesh.property(_originalHf, f));
-            cmp[_originalMesh.incident_cell(oF)] = _mesh.property(_cmp, f);
+    for (auto mesh : _cmpMeshes) {
+        VolumeMesh m;
+        if (!retetrahedrize(mesh, m)) {
+            std::cerr << "Could not tetrahederize component" << std::endl;
+        } else {
+            _cmpVolMeshes.push_back(m);
         }
     }
+
+    this->_computed = true;
 }
 
 void StarDecompositionBoundary::apply_current_component() {
@@ -419,6 +424,14 @@ Mesh StarDecompositionBoundary::add_component(OpenMesh::FaceHandle startF) {
         exit(1);
     }
 
+#ifdef GUI
+    std::vector<Eigen::Vector3d> positions;
+    for (auto v : _mesh.fv_range(startF)) {
+        positions.push_back(_mesh.point(v));
+    }
+    _viewer->add_triangle(positions, { 0, 1, 0 });
+#endif
+
     _cmpIdx = _cmpMeshes.size();
     _cmpMeshes.push_back(mesh);
     _currentCmp = &_cmpMeshes[_cmpIdx];
@@ -516,6 +529,13 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
         }
     }
 
+#ifdef GUI
+    std::vector<Eigen::Vector3d> positions;
+    for (auto v : triangle) {
+        positions.push_back(mesh.point(v));
+    }
+#endif
+
     if (illegalTriangle || !shouldCheck || !cmpCenter.first) {
         if (illegalTriangle) {
             triangleIntersect++;
@@ -528,10 +548,23 @@ bool StarDecompositionBoundary::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle
             _cmpVertexMap.erase(newFaceVertex);
         }
 
+#ifdef GUI
+        if (illegalTriangle) {
+            _viewer->add_triangle(positions, { 1, 0, 0 });
+        } else if (shouldCheck) {
+            _viewer->add_triangle(positions, { 0, 0, 1 });
+        } else {
+            _viewer->add_triangle(positions, { 1, 0, 1 });
+        }
+#endif
+
         txMesh.revert();
 
         return false;
     } else {
+#ifdef GUI
+        _viewer->add_triangle(positions, { 0, 1, 0 });
+#endif
         other++;
     }
 

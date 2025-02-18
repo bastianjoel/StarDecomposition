@@ -33,10 +33,6 @@ void callback() {
 }
 #endif
 
-std::thread viewer_thread([]() {
-    viewer.start(callback, "..", "Star Decomposition Maps");
-});
-
 /*
 #ifdef GUI
         auto clr = viewer_mesh.property<Cell, Eigen::Vector3d>("clr", {1, 1, 1});
@@ -73,21 +69,21 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     }
 
 #ifdef GUI
-        auto clr = viewer_mesh.property<Cell, Eigen::Vector3d>("clr", {1, 1, 1});
-        VolumeMesh& Mi = N;
-        Eigen::Vector3d color = {1, 1, 1};
-        auto vmap = Mi.property<Vertex, Vertex>();
-        for (auto c : Mi.cells()) {
-            std::vector<Vertex> vertices;
-            for (auto cv : Mi.tet_vertices(c)) {
-                if (!viewer_mesh.is_valid(vmap[cv])) {
-                    Vertex v = viewer_mesh.add_vertex(Mi.position(cv));
-                    vmap[cv] = v;
-                }
-                vertices.push_back(vmap[cv]);
+    auto clr = viewer_mesh.property<Cell, Eigen::Vector3d>("clr", {1, 1, 1});
+    VolumeMesh& Mi = N;
+    Eigen::Vector3d color = {1, 1, 1};
+    auto vmap = Mi.property<Vertex, Vertex>();
+    for (auto c : Mi.cells()) {
+        std::vector<Vertex> vertices;
+        for (auto cv : Mi.tet_vertices(c)) {
+            if (!viewer_mesh.is_valid(vmap[cv])) {
+                Vertex v = viewer_mesh.add_vertex(Mi.position(cv));
+                vmap[cv] = v;
             }
-            clr[viewer_mesh.add_cell(vertices, true)] = color;
+            vertices.push_back(vmap[cv]);
         }
+        clr[viewer_mesh.add_cell(vertices, true)] = color;
+    }
 #endif
 
     std::vector<Vector3q> centers;
@@ -98,13 +94,26 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     } else if (algorithm == "boundary") {
         std::cout << "boundary" << std::endl;
         StarDecompositionBoundary decomposer(N);
+        decomposer.set_viewer(&viewer);
+        std::thread viewer_thread([]() {
+            viewer.start(callback, "..", "Star Decomposition Maps");
+        });
         centers = decomposer.centers();
+#ifdef GUI
+        viewer_thread.join();
+#endif
         return decomposer.components();
     } else {
         std::cout << "boundary (lp center move)" << std::endl;
         StarDecompositionBoundaryLp decomposer(N);
         decomposer.set_viewer(&viewer);
+        std::thread viewer_thread([]() {
+            viewer.start(callback, ".", "Star Decomposition Maps");
+        });
         centers = decomposer.centers();
+#ifdef GUI
+        viewer_thread.join();
+#endif
         return decomposer.components();
     }
 
@@ -139,10 +148,6 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
         N.remove_cells(cells);
     }
 
-    
-#ifdef GUI
-    viewer_thread.join();
-#endif
     return components;
 }
 

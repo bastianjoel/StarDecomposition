@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesh.h"
+#include "viewer.h"
 #include "volume_mesh.h"
 #include "vectorq.h"
 #include <utility>
@@ -11,8 +12,13 @@ public:
   StarDecompositionBoundary(Mesh& m);
   std::vector<Vector3q> centers();
   std::vector<VolumeMesh> components();
+#ifdef GUI
+  void set_viewer(Viewer* viewer) { _viewer = viewer; }
+#endif
 private:
-  bool _wasVolumeMesh;
+#ifdef GUI
+  Viewer* _viewer = nullptr;
+#endif
   VolumeMesh _originalMesh;
 
   int noCenter = 0;
@@ -31,6 +37,7 @@ private:
   // Global component meshes
   std::pair<OpenMesh::FaceHandle, OpenMesh::VertexHandle> _cmpFixV;
   std::vector<Mesh> _cmpMeshes;
+  std::vector<VolumeMesh> _cmpVolMeshes;
   Mesh* _currentCmp = nullptr;
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _meshVertexMap;

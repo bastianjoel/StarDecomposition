@@ -238,6 +238,28 @@ bool VolumeMesh::degenerate_or_inverted(::Cell c) {
     return orient3d(tetrahedron) >= 0;
 }
 
+Mesh VolumeMesh::to_mesh() {
+    Mesh mesh;
+    auto Q = property<Vertex, Vector3q>("Q");
+    std::map<Vertex, OpenMesh::VertexHandle> vMap;
+    for (auto v : vertices()) {
+        vMap[v] = mesh.add_vertex_q(Q[v]);
+    }
+
+    for (auto hf : boundary_halffaces()) {
+        std::vector<OpenMesh::VertexHandle> newHfVertices;
+        for (auto hv : halfface_vertices(hf)) {
+            newHfVertices.push_back(vMap[hv]);
+        }
+        auto face = mesh.add_face(newHfVertices);
+        mesh.update_normal_q(face);
+    }
+
+    mesh.delete_isolated_vertices();
+    mesh.garbage_collection();
+    return mesh;
+}
+
 VolumeMesh read(std::string filename, int& orientation) {
     VolumeMesh mesh;
     std::string extension = filename.substr(filename.rfind('.') + 1);
