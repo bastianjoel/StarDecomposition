@@ -77,7 +77,7 @@ bool retetrahedrize(VolumeMesh& mesh) {
     return true;
 }
 
-bool retetrahedrize(Mesh& mesh, VolumeMesh& outMesh) {
+bool retetrahedrize(const Mesh& mesh, VolumeMesh& outMesh) {
     tetgenbehavior behavior;
     behavior.plc = 1;
     behavior.quality = 1;

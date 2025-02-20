@@ -10,195 +10,7 @@
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <queue>
 
-const int cmpNotSetIdx = -1;
-
-void StarDecompositionBoundaryChebyshev::run() {
-    std::cout << "Start decomposition" << std::endl;
-
-    srand(0);
-
-    _cmpIdx = 0;
-    int startOffset = 0;
-    int resets = 0;
-    int bestSinceReset = 0;
-    while (_mesh.faces_empty() == false) {
-        // Add random face
-        OpenMesh::FaceHandle h = *(_mesh.faces_begin() + (rand() % _mesh.n_faces()));
-
-        add_component(h);
-        if (_mesh.star_center().first) {
-            for (auto f : _mesh.faces()) {
-                _mesh.property(_cmp, f) = _cmpIdx;
-            }
-            _cmpMeshes[_cmpIdx] = _mesh;
-            break;
-        }
-
-        std::vector<OpenMesh::FaceHandle> candidates;
-        std::vector<OpenMesh::FaceHandle> candidates2;
-        std::set<OpenMesh::FaceHandle> visited;
-        for (auto he : _mesh.fh_range(h)) {
-            auto oFace = _mesh.opposite_face_handle(he);
-            if (oFace.is_valid()) {
-                candidates.push_back(oFace);
-            }
-        }
-
-        int added = 0;
-        while (!candidates.empty() || !candidates2.empty() || added > 0) {
-            if (candidates.empty() && candidates2.empty() && added > 0) {
-                added = 0;
-                for (auto hh : _currentCmp->voh_range(_cmpFixV.second)) {
-                    auto h = _currentCmp->next_halfedge_handle(hh);
-                    auto v0 = _meshVertexMap[_currentCmp->from_vertex_handle(h)];
-                    auto v1 = _meshVertexMap[_currentCmp->to_vertex_handle(h)];
-                    auto he = _mesh.find_halfedge(v0, v1);
-                    if (he.is_valid()) {
-                        auto f = _mesh.face_handle(he);
-                        if (f.is_valid() && _mesh.property(_cmp, f) == cmpNotSetIdx) {
-                            candidates.push_back(f);
-                        }
-                    }
-                }
-            }
-
-            OpenMesh::FaceHandle nextH;
-            if (candidates2.empty()) {
-                auto nextPtr = candidates.begin() + (rand() % candidates.size());
-                nextH = *nextPtr;
-                candidates.erase(nextPtr);
-            } else {
-                nextH = candidates2.front();
-                candidates2.erase(candidates2.begin());
-            }
-
-            bool alreadyChecked = _mesh.property(_cmp, nextH) != cmpNotSetIdx || visited.find(nextH) != visited.end();
-            if (alreadyChecked || !add_face_to_cmp(*_currentCmp, nextH)) {
-                visited.insert(nextH);
-                continue;
-            }
-
-            added++;
-            _viewer->queue_update();
-            visited.clear();
-            _mesh.property(_cmp, nextH) = _cmpIdx;
-            for (auto he : _mesh.fh_range(nextH)) {
-                auto oFace = _mesh.opposite_face_handle(he);
-                if (oFace.is_valid() && _mesh.property(_cmp, oFace) == cmpNotSetIdx) {
-                    bool between = false;
-                    for (auto fh : _mesh.fh_range(oFace)) {
-                        auto hv = _mesh.from_vertex_handle(fh);
-                        auto hvTo = _mesh.to_vertex_handle(fh);
-                        if (fh != _mesh.opposite_halfedge_handle(he) && _cmpVertexMap[hv].is_valid() && _cmpVertexMap[hvTo].is_valid()) {
-                            auto h = _currentCmp->find_halfedge(_cmpVertexMap[hv], _cmpVertexMap[hvTo]);
-                            if (h.is_valid()) {
-                                between = true;
-                            }
-                            break;
-                        }
-                    }
-
-                    if (between) {
-                        candidates2.push_back(oFace);
-                    } else {
-                        candidates.push_back(oFace);
-                    }
-                }
-            }
-        }
-
-        int numCmpFacesTotal = _currentCmp->faces().to_vector().size();
-        int numCmpFaces = 0;
-        for (auto f : _mesh.faces()) {
-            if (_mesh.property(_cmp, f) == _cmpIdx) {
-                numCmpFaces++;
-            }
-        }
-        int amount = (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
-        if (amount < -10 || (resets > 3 && amount <= 0.7 * bestSinceReset && amount < 0)) {
-            std::cout << "Cmp " << _cmpIdx << " amount faces: " << _currentCmp->faces().to_vector().size() << " full mesh size change: " << (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
-            std::cout << " resets: " << resets << " full mesh size: " << _mesh.n_faces() << std::endl;
-            // std::cout << "Triangle intersect: " << triangleIntersect << " No center: " << noCenter << " Other: " << other << std::endl;
-            apply_current_component();
-            {
-                char buffer[100];
-                std::sprintf(buffer, "debug/original_%d.obj", _cmpIdx);
-                if (!OpenMesh::IO::write_mesh(_mesh, buffer)) {
-                    std::cerr << "write error\n";
-                    exit(1);
-                }
-            }
-            startOffset = 0;
-            resets = 0;
-            bestSinceReset = 0;
-#ifdef GUI
-            _viewer->clear_extras();
-#endif
-        } else if (resets > 10) {
-            _cmpMeshes.pop_back();
-            auto components = sd(_mesh, "tet");
-            for (auto m : components) {
-                _components.push_back(m);
-            }
-            _cmpIdx = _cmpMeshes.size() - 1;
-            break;
-        } else {
-            // std::cout << "\tTriangle intersect: " << triangleIntersect << " No center: " << noCenter << " Other: " << other << std::endl;
-            for (auto f : _mesh.faces()) {
-                if (_mesh.property(_cmp, f) == _cmpIdx) {
-                    _mesh.property(_cmp, f) = cmpNotSetIdx;
-                }
-            }
-        
-            _cmpMeshes.pop_back();
-            startOffset++;
-            resets++;
-
-            if (amount < bestSinceReset) {
-                bestSinceReset = (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
-            }
-        }
-
-        triangleIntersect = 0; noCenter = 0; other = 0;
-
-        {
-            char buffer[100];
-            std::sprintf(buffer, "debug/cmp_%d.obj", _cmpIdx);
-            if (!OpenMesh::IO::write_mesh(*_currentCmp, buffer)) {
-                std::cerr << "write error\n";
-                exit(1);
-            }
-        }
-    }
-
-    std::cout << _cmpIdx + 1 << " components" << std::endl;
-    {
-        char buffer[100];
-        std::sprintf(buffer, "debug/cmp_%d.obj", _cmpIdx);
-        if (!OpenMesh::IO::write_mesh(*_currentCmp, buffer)) {
-            std::cerr << "write error\n";
-            exit(1);
-        }
-    }
-
-    for (auto mesh : _cmpMeshes) {
-        VolumeMesh m;
-        if (!retetrahedrize(mesh, m)) {
-            std::cerr << "Could not tetrahederize component" << std::endl;
-        } else {
-            _components.push_back(m);
-        }
-    }
-
-    this->_computed = true;
-}
-
-void StarDecompositionBoundaryChebyshev::apply_current_component() {
-    Mesh& cmpMesh = *_currentCmp;
-    // TODO: Implement try close without fix vertex
-    // 1. Remove covered faces from _mesh
-    // 2. 
-
+void StarDecompositionBoundaryChebyshev::finalize_component(Mesh& cmpMesh) {
     Vector3q openingCenter = Vector3q::Zero();
     int numBoundaryVertices = 0;
     for (auto f : cmpMesh.vf_range(_cmpFixV.second)) {
@@ -226,7 +38,7 @@ void StarDecompositionBoundaryChebyshev::apply_current_component() {
     double maxArea = -1;
     auto fixVertex = _mesh.add_vertex_q(cmpMesh.data(_cmpFixV.second).point_q());
     for (auto f : _mesh.faces()) {
-        if (_mesh.property(_cmp, f) == _cmpIdx) {
+        if (_mesh.property(_selected, f)) {
             _mesh.delete_face(f, true);
             double cMaxArea = _mesh.calc_face_area(f);
             if (cMaxArea > maxArea) {
@@ -240,12 +52,13 @@ void StarDecompositionBoundaryChebyshev::apply_current_component() {
         if (_mesh.is_boundary(h)) {
             auto f = _mesh.add_face(_mesh.from_vertex_handle(h), _mesh.to_vertex_handle(h), fixVertex);
             _mesh.update_normal_q(f);
-            _mesh.property(_cmp, f) = cmpNotSetIdx;
+            _mesh.property(_selected, f) = false;
         }
     }
 
     _cmpFixV.second = fixVertex;
-    _currentCmp->garbage_collection();
+    cmpMesh.garbage_collection();
+
     _mesh.delete_isolated_vertices();
     _mesh.garbage_collection();
     _mesh.generate_bvh();
@@ -308,10 +121,7 @@ bool StarDecompositionBoundaryChebyshev::move_vertex_to(Mesh& mesh, OpenMesh::Ve
     return true;
 }
 
-Mesh StarDecompositionBoundaryChebyshev::add_component(const OpenMesh::FaceHandle& startF) {
-    _cmpVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
-    _meshVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
-
+Mesh StarDecompositionBoundaryChebyshev::init_component(const OpenMesh::FaceHandle& startF) {
     Mesh mesh;
     std::vector<OpenMesh::VertexHandle> newHfVertices;
     for (auto hv : _mesh.fv_range(startF)) {
@@ -354,11 +164,7 @@ Mesh StarDecompositionBoundaryChebyshev::add_component(const OpenMesh::FaceHandl
     _viewer->add_triangle(positions, { 0, 1, 0 });
 #endif
 
-    _cmpIdx = _cmpMeshes.size();
-    _cmpMeshes.push_back(mesh);
-    _currentCmp = &_cmpMeshes[_cmpIdx];
-
-    _mesh.property(_cmp, startF) = _cmpIdx;
+    _mesh.property(_selected, startF) = true;
     return mesh;
 }
 
@@ -459,12 +265,6 @@ bool StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenM
 #endif
 
     if (illegalTriangle || !shouldCheck || !cmpCenter.first) {
-        if (illegalTriangle) {
-            triangleIntersect++;
-        } else if (!cmpCenter.first) {
-            noCenter++;
-        }
-
         if (newFaceVertex.is_valid()) {
             _meshVertexMap.erase(_cmpVertexMap[newFaceVertex]);
             _cmpVertexMap.erase(newFaceVertex);
@@ -487,7 +287,6 @@ bool StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenM
 #ifdef GUI
         _viewer->add_triangle(positions, { 0, 1, 0 });
 #endif
-        other++;
     }
 
 

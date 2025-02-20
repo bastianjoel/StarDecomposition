@@ -6,4 +6,4 @@
 #include "volume_mesh.h"
 
 bool retetrahedrize(VolumeMesh& mesh);
-bool retetrahedrize(Mesh& mesh, VolumeMesh& out);
+bool retetrahedrize(const Mesh& mesh, VolumeMesh& out);

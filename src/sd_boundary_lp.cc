@@ -9,190 +9,37 @@
 #include <map>
 #include <OpenMesh/Core/IO/MeshIO.hh>
 
-#define FACE_SELECTION_ORDERED 1
-
-const int cmpNotSetIdx = -1;
-
-void StarDecompositionBoundaryLp::run() {
-    srand(0);
-    std::cout << "Start decomposition" << std::endl;
-
-    _cmpIdx = 0;
-    int startOffset = 0;
-    while (_mesh.faces_empty() == false) {
-        // Add random face
-        OpenMesh::FaceHandle h = *(_mesh.faces_begin() + (rand() % _mesh.n_faces()));
-
-        add_component(h);
-        if (_mesh.star_center().first) {
-            for (auto f : _mesh.faces()) {
-                _mesh.property(_cmp, f) = cmpNotSetIdx;
-            }
-            _cmpMeshes[_cmpIdx] = _mesh;
-            break;
-        }
-
-        std::vector<OpenMesh::FaceHandle> candidates;
-        std::vector<OpenMesh::FaceHandle> candidates2;
-        std::set<OpenMesh::FaceHandle> visited;
-        for (auto he : _mesh.fh_range(h)) {
-            auto oFace = _mesh.opposite_face_handle(he);
-            if (oFace.is_valid()) {
-                candidates.push_back(oFace);
-            }
-        }
-
-        while (!candidates.empty() || !candidates2.empty()) {
-            if (candidates.empty() && candidates2.empty()) {
-                break;
-            }
-
-            OpenMesh::FaceHandle nextH;
-            if (candidates2.empty()) {
-                auto nextPtr = candidates.begin() + (rand() % candidates.size());
-                nextH = *nextPtr;
-                candidates.erase(nextPtr);
-            } else {
-                nextH = candidates2.front();
-                candidates2.erase(candidates2.begin());
-            }
-
-            bool alreadyChecked = _mesh.property(_cmp, nextH) != cmpNotSetIdx || visited.find(nextH) != visited.end();
-            if (alreadyChecked || !add_face_to_cmp(*_currentCmp, nextH)) {
-                visited.insert(nextH);
-                continue;
-            }
-
-            std::cout << "." << std::flush;
-            visited.clear();
-            _viewer->queue_update();
-            _mesh.property(_cmp, nextH) = _cmpIdx;
-            for (auto he : _mesh.fh_range(nextH)) {
-                auto oFace = _mesh.opposite_face_handle(he);
-                if (oFace.is_valid() && _mesh.property(_cmp, oFace) == cmpNotSetIdx) {
-                    bool between = false;
-                    for (auto fh : _mesh.fh_range(oFace)) {
-                        auto hv = _mesh.from_vertex_handle(fh);
-                        auto hvTo = _mesh.to_vertex_handle(fh);
-                        if (fh != _mesh.opposite_halfedge_handle(he) && _cmpVertexMap[hv].is_valid() && _cmpVertexMap[hvTo].is_valid()) {
-                            auto h = _currentCmp->find_halfedge(_cmpVertexMap[hv], _cmpVertexMap[hvTo]);
-                            if (h.is_valid()) {
-                                between = true;
-                            }
-                            break;
-                        }
-                    }
-
-                    if (between) {
-                        candidates2.push_back(oFace);
-                    } else {
-                        candidates.push_back(oFace);
-                    }
-                }
-            }
-        }
-
-        int numCmpFacesTotal = _currentCmp->faces().to_vector().size();
-        int numCmpFaces = 0;
-        for (auto f : _mesh.faces()) {
-            if (_mesh.property(_cmp, f) == _cmpIdx) {
-                numCmpFaces++;
-            }
-        }
-
-        std::cout << "Cmp " << _cmpIdx << " amount faces: " << _currentCmp->faces().to_vector().size() << " full mesh size: " << (-numCmpFaces + (numCmpFacesTotal - numCmpFaces)) << std::endl;
-        apply_current_component();
-        {
-            char buffer[100];
-            std::sprintf(buffer, "debug/original_%d.obj", _cmpIdx);
-            if (!OpenMesh::IO::write_mesh(_mesh, buffer)) {
-                std::cerr << "write error\n";
-                exit(1);
-            }
-        }
-
-        _currentCmp->garbage_collection();
-        {
-            char buffer[100];
-            std::sprintf(buffer, "debug/cmp_%d.obj", _cmpIdx);
-            if (!OpenMesh::IO::write_mesh(*_currentCmp, buffer)) {
-                std::cerr << "write error\n";
-                exit(1);
-            }
-        }
-    }
-
-    std::cout << _cmpIdx + 1 << " components" << std::endl;
-    {
-        char buffer[100];
-        std::sprintf(buffer, "debug/cmp_%d.obj", _cmpIdx);
-        if (!OpenMesh::IO::write_mesh(*_currentCmp, buffer)) {
-            std::cerr << "write error\n";
-            exit(1);
-        }
-    }
-
-    this->_computed = true;
-}
-
-void StarDecompositionBoundaryLp::apply_current_component() {
+void StarDecompositionBoundaryLp::finalize_component(Mesh& cmpMesh) {
     for (auto f : _mesh.faces()) {
-        if (_mesh.property(_cmp, f) == _cmpIdx) {
+        if (_mesh.property(_selected, f)) {
             _mesh.delete_face(f, true);
         }
     }
 
-    Mesh& cmpMesh = *_currentCmp;
+    auto cmpFixVertex = cmpMesh.add_vertex_q(_cmpFixV);
     for (auto h : cmpMesh.halfedges()) {
         if (cmpMesh.is_boundary(h)) {
-            std::vector<OpenMesh::HalfedgeHandle> boundary;
-            OpenMesh::HalfedgeHandle next = h;
-            do {
-                boundary.push_back(next);
-                next = cmpMesh.next_halfedge_handle(next);
-            } while (next != h);
-
-            std::cout << "Boundary size: " << boundary.size() << std::endl;
-            auto cmpFixVertex = cmpMesh.add_vertex_q(_cmpFixV);
-            for (auto bH : boundary) {
-                cmpMesh.add_face(cmpMesh.from_vertex_handle(bH), cmpMesh.to_vertex_handle(bH), cmpFixVertex);
-            }
-            // TODO: Move fix vertex
+            cmpMesh.add_face(cmpMesh.from_vertex_handle(h), cmpMesh.to_vertex_handle(h), cmpFixVertex);
         }
     }
 
-    // TODO: Prevent complex endges
+    auto fixVertex = _mesh.add_vertex_q(_cmpFixV);
     for (auto h : _mesh.halfedges()) {
         if (_mesh.is_boundary(h)) {
-            std::vector<OpenMesh::HalfedgeHandle> boundary;
-            OpenMesh::HalfedgeHandle next = h;
-            do {
-                boundary.push_back(next);
-                next = _mesh.next_halfedge_handle(next);
-            } while (next != h);
-
-            auto fixVertex = _mesh.add_vertex_q(_cmpFixV);
-            for (auto bH : boundary) {
-                auto f = _mesh.add_face(_mesh.from_vertex_handle(bH), _mesh.to_vertex_handle(bH), fixVertex);
-                if (f.is_valid()) {
-                    _mesh.update_normal_q(f);
-                    _mesh.property(_cmp, f) = cmpNotSetIdx;
-                }
-
-                // TODO: Move fix vertex
-            }
+            auto f = _mesh.add_face(_mesh.from_vertex_handle(h), _mesh.to_vertex_handle(h), fixVertex);
+            _mesh.update_normal_q(f);
+            _mesh.property(_selected, f) = false;
         }
     }
+
+    cmpMesh.garbage_collection();
 
     _mesh.delete_isolated_vertices();
     _mesh.garbage_collection();
     _mesh.generate_bvh();
 }
 
-Mesh StarDecompositionBoundaryLp::add_component(const OpenMesh::FaceHandle& startF) {
-    _cmpVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
-    _meshVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
-
+Mesh StarDecompositionBoundaryLp::init_component(const OpenMesh::FaceHandle& startF) {
     Mesh mesh;
     std::vector<OpenMesh::VertexHandle> newHfVertices;
     for (auto hv : _mesh.fv_range(startF)) {
@@ -205,15 +52,11 @@ Mesh StarDecompositionBoundaryLp::add_component(const OpenMesh::FaceHandle& star
     auto face = mesh.add_face(newHfVertices);
     mesh.set_normal_q(face, _mesh.data(startF).normal_q());
 
-    _cmpIdx = _cmpMeshes.size();
-    _cmpMeshes.push_back(mesh);
-    _currentCmp = &_cmpMeshes[_cmpIdx];
-
     _cmpNormal = _mesh.data(startF).normal_q();
     _cmpCenter = _mesh.face_center(startF);
     _cmpFixV = _cmpCenter - _mesh.data(startF).normal_q() * 1e-4;
 
-    _mesh.property(_cmp, startF) = _cmpIdx;
+    _mesh.property(_selected, startF) = true;
     return mesh;
 }
 
@@ -235,7 +78,7 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
             _meshVertexMap[newVertex] = hv;
             newFaceVertex = hv;
         } else {
-            OpenMesh::HalfedgeHandle h = _currentCmp->find_halfedge(_cmpVertexMap[hvTo], _cmpVertexMap[hv]);
+            OpenMesh::HalfedgeHandle h = mesh.find_halfedge(_cmpVertexMap[hvTo], _cmpVertexMap[hv]);
             if (h.is_valid()) {
                 if (singleExistingEdge.is_valid()) {
                     singleExistingEdge = OpenMesh::HalfedgeHandle();
@@ -250,11 +93,11 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
 
     // Face would split mesh into two components
     std::vector<OpenMesh::FaceHandle> lineFaces;
-    /*
     if (singleExistingEdge.is_valid() && !newFaceVertex.is_valid()) {
+        /*
         // Check if one direction consists of a "line" of faces
-        auto vExFrom = _meshVertexMap[_currentCmp->from_vertex_handle(singleExistingEdge)];
-        auto vExTo = _meshVertexMap[_currentCmp->to_vertex_handle(singleExistingEdge)];
+        auto vExFrom = _meshVertexMap[mesh.from_vertex_handle(singleExistingEdge)];
+        auto vExTo = _meshVertexMap[mesh.to_vertex_handle(singleExistingEdge)];
         auto hStart = _mesh.find_halfedge(vExTo, vExFrom);
         auto fStart = newFace;
         bool isLine = true;
@@ -269,7 +112,7 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
                 int openNeighbours = 0;
                 next = OpenMesh::FaceHandle();
                 for (auto fh : _mesh.fh_range(curr)) {
-                    if (_mesh.property(_cmp, _mesh.opposite_face_handle(fh)) == cmpNotSetIdx) {
+                    if (!_mesh.property(_selected, _mesh.opposite_face_handle(fh))) {
                         openNeighbours++;
 
                         if (_mesh.opposite_face_handle(fh) != prev) {
@@ -296,8 +139,9 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
         if (!isLine) {
             return false;
         }
+        */
+        return false;
     }
-    */
 
     bool valid = true;
     bool invalidCenter = false;
@@ -393,7 +237,7 @@ LABEL:
         }
 #endif
         for (auto f : lineFaces) {
-            _mesh.property(_cmp, f) = _cmpIdx;
+            _mesh.property(_selected, f) = true;
         }
     }
 
