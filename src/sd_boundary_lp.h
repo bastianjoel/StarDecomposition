@@ -2,29 +2,17 @@
 
 #include "lp.h"
 #include "mesh.h"
+#include "sd_boundary.h"
 #include "volume_mesh.h"
 #include "vectorq.h"
 #include <utility>
-#ifdef GUI
-#include "viewer.h"
-#endif
 
-
-class StarDecompositionBoundaryLp {
+class StarDecompositionBoundaryLp : public StarDecompositionBoundary {
 public:
-  StarDecompositionBoundaryLp(VolumeMesh& m);
-  StarDecompositionBoundaryLp(Mesh& m);
-  std::vector<Vector3q> centers();
-  std::vector<VolumeMesh> components();
-#ifdef GUI
-  void set_viewer(Viewer* viewer) { _viewer = viewer; }
-#endif
-private:
-#ifdef GUI
-  Viewer* _viewer = nullptr;
-#endif
-  VolumeMesh _originalMesh;
+  StarDecompositionBoundaryLp(Mesh& m) : StarDecompositionBoundary(m) {}
+  StarDecompositionBoundaryLp(VolumeMesh& vMesh) : StarDecompositionBoundary(vMesh) {}
 
+private:
   Mesh _mesh = Mesh();
   bool _computed;
   int _cmpIdx = 0;
@@ -43,6 +31,6 @@ private:
   std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _meshVertexMap;
 
   Mesh add_component(const OpenMesh::FaceHandle& startF);
-  bool add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& hf);
+  bool add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf);
   void apply_current_component();
 };

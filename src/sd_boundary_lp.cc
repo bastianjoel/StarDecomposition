@@ -13,78 +13,8 @@
 
 const int cmpNotSetIdx = -1;
 
-StarDecompositionBoundaryLp::StarDecompositionBoundaryLp(Mesh& m) : _computed(false), _mesh(m) {
-    _mesh.add_property(_cmp);
-    for (auto v : _mesh.vertices()) {
-        _mesh.data(v).set_point_q(_mesh.point(v).cast<mpq_class>());
-    }
-
-    for (auto f : _mesh.faces()) {
-        _mesh.update_normal_q(f);
-        _mesh.property(_cmp, f) = cmpNotSetIdx;
-    }
-
-    if (!OpenMesh::IO::write_mesh(_mesh, "debug/original.obj")) {
-        std::cerr << "write error\n";
-        exit(1);
-    }
-}
-
-StarDecompositionBoundaryLp::StarDecompositionBoundaryLp(VolumeMesh& mesh) : _computed(false), _originalMesh(mesh) {
-    _mesh.add_property(_cmp);
-
-    auto Q = mesh.property<Vertex, Vector3q>("Q");
-    std::map<Vertex, OpenMesh::VertexHandle> vMap;
-    for (auto v : mesh.vertices()) {
-        vMap[v] = _mesh.add_vertex_q(Q[v]);
-    }
-
-    for (auto hf : mesh.boundary_halffaces()) {
-        std::vector<OpenMesh::VertexHandle> newHfVertices;
-        for (auto hv : mesh.halfface_vertices(hf)) {
-            newHfVertices.push_back(vMap[hv]);
-        }
-        auto face = _mesh.add_face(newHfVertices);
-        _mesh.update_normal_q(face);
-        _mesh.property(_cmp, face) = cmpNotSetIdx;
-    }
-
-    if (!OpenMesh::IO::write_mesh(_mesh, "debug/original.obj")) {
-        std::cerr << "write error\n";
-        exit(1);
-    }
-}
-
-std::vector<Vector3q> StarDecompositionBoundaryLp::centers() {
-    if (!this->_computed) {
-        this->run();
-    }
-
-    return std::vector<Vector3q>();
-}
-
-std::vector<VolumeMesh> StarDecompositionBoundaryLp::components() {
-    if (!this->_computed) {
-        this->run();
-    }
-
-    std::vector<VolumeMesh> components;
-    for (auto mesh : _cmpMeshes) {
-        VolumeMesh m;
-        if (!retetrahedrize(mesh, m)) {
-            std::cerr << "Could not tetrahederize component" << std::endl;
-            exit(1);
-        }
-
-        components.push_back(m);
-    }
-
-    return components;
-}
-
 void StarDecompositionBoundaryLp::run() {
     srand(0);
-    _mesh.generate_bvh();
     std::cout << "Start decomposition" << std::endl;
 
     _cmpIdx = 0;
@@ -290,7 +220,7 @@ Mesh StarDecompositionBoundaryLp::add_component(const OpenMesh::FaceHandle& star
 /**
  * Adds a face to an existing triangle mesh
  */
-bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, OpenMesh::FaceHandle& newFace) {
+bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
     OpenMesh::VertexHandle newFaceVertex;
     std::vector<OpenMesh::VertexHandle> triangle;
     TxDeleteMesh txMesh(mesh);
