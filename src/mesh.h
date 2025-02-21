@@ -50,6 +50,7 @@ private:
     OpenMesh::HalfedgeHandle lastBoundaryHalfedge;
     BVHNode* _bvh = nullptr;
     OpenMesh::FaceHandle triangle_intersects_bvh(BVHNode* node, const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices);
+    OpenMesh::FaceHandle ray_intersects_bvh(BVHNode* node, const Vector3q& p, const Vector3q& n);
 public:
     ~Mesh() {
         if (_bvh != nullptr) {
@@ -70,8 +71,11 @@ public:
 
     bool point_on_face(OpenMesh::FaceHandle fh, Vector3q p);
     OpenMesh::FaceHandle get_face_in_dir(const Vector3q& vPos, const Vector3q& n);
-    OpenMesh::FaceHandle triangle_intersects(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> borderVertices);
-    bool triangle_intersects(std::vector<Vector3q> t, Vector3q n, std::vector<OpenMesh::VertexHandle> borderVertices, OpenMesh::FaceHandle face);
+
+    OpenMesh::FaceHandle triangle_intersects(const std::vector<Vector3q>& t, const std::vector<OpenMesh::VertexHandle>& borderVertices);
+    bool triangle_intersects(const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices, const OpenMesh::FaceHandle& face);
+
+    OpenMesh::FaceHandle ray_intersects(const Vector3q& o, const Vector3q& n);
 
     void generate_bvh();
     BVHNode* generate_bvh(std::vector<OpenMesh::FaceHandle>& faces, int depth = 0);

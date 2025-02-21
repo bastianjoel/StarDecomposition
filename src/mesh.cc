@@ -1,4 +1,5 @@
 #include "mesh.h"
+#include "triray.h"
 #include <algorithm>
 #include <set>
 
@@ -63,7 +64,7 @@ void Mesh::move(OpenMesh::VertexHandle vh, const Vector3q& p) {
     }
 }
 
-OpenMesh::FaceHandle Mesh::triangle_intersects(std::vector<Vector3q> t, std::vector<OpenMesh::VertexHandle> borderVertices) {
+OpenMesh::FaceHandle Mesh::triangle_intersects(const std::vector<Vector3q>& t, const std::vector<OpenMesh::VertexHandle>& borderVertices) {
     Vector3q n = (t[1] - t[0]).cross(t[2] - t[0]);
     if (!_bvh) {
         for (auto face : this->faces()) {
@@ -106,7 +107,7 @@ OpenMesh::FaceHandle Mesh::triangle_intersects_bvh(BVHNode* node, const std::vec
     return OpenMesh::FaceHandle();
 }
 
-bool Mesh::triangle_intersects(std::vector<Vector3q> t, Vector3q n, std::vector<OpenMesh::VertexHandle> borderVertices, OpenMesh::FaceHandle face) {
+bool Mesh::triangle_intersects(const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices, const OpenMesh::FaceHandle& face) {
     std::vector<OpenMesh::VertexHandle> fv = {
         this->to_vertex_handle(this->halfedge_handle(face)),
         this->to_vertex_handle(this->next_halfedge_handle(this->halfedge_handle(face))),
@@ -145,6 +146,90 @@ bool Mesh::triangle_intersects(std::vector<Vector3q> t, Vector3q n, std::vector<
     }
 
     return tri_tri_intersect(t[0], t[1], t[2], n, vq[0], vq[1], vq[2], fNormal);
+}
+
+OpenMesh::FaceHandle Mesh::ray_intersects(const Vector3q& o, const Vector3q& n) {
+    if (!_bvh) {
+        double distResult = -1;
+        OpenMesh::FaceHandle opposite;
+        for (auto face : this->faces()) {
+            std::vector<Vector3q> t;
+            for (auto v : fv_range(face)) {
+                t.push_back(data(v).point_q());
+            }
+
+            mpq_class dist;
+            bool res = tri_ray_intersect(o, n, t[0], t[1], t[2], dist);
+            if (!res) {
+                continue;
+            }
+
+            double distD = dist.get_d();
+            if (distResult == -1 || distD < distResult) {
+                distResult = distD;
+                opposite = face;
+            }
+        }
+
+        return opposite;
+    } else {
+        return ray_intersects_bvh(_bvh, o, n);
+    }
+
+    return OpenMesh::FaceHandle();
+}
+
+OpenMesh::FaceHandle Mesh::ray_intersects_bvh(BVHNode* node, const Vector3q& o, const Vector3q& n) {
+    if (!node->aabb.ray_intersects(o, n)) {
+        return OpenMesh::FaceHandle();
+    }
+
+    if (node->is_leaf) {
+        double distResult = -1;
+        OpenMesh::FaceHandle opposite;
+        for (auto f : node->faces) {
+            std::vector<Vector3q> t;
+            for (auto v : fv_range(f)) {
+                t.push_back(data(v).point_q());
+            }
+
+            mpq_class dist;
+            if (tri_ray_intersect(o, n, t[0], t[1], t[2], dist) && (distResult == -1 || dist.get_d() < distResult)) {
+                distResult = dist.get_d();
+                opposite = f;
+            }
+        }
+
+        return opposite;
+    } else {
+        mpq_class leftDist, rightDist, rayExit;
+        node->l->aabb.ray_intersects(o, n, leftDist, rayExit);
+        node->r->aabb.ray_intersects(o, n, rightDist, rayExit);
+
+        if (leftDist < rightDist) {
+            OpenMesh::FaceHandle left = ray_intersects_bvh(node->l, o, n);
+            if (left.is_valid()) {
+                return left;
+            }
+
+            OpenMesh::FaceHandle right = ray_intersects_bvh(node->r, o, n);
+            if (right.is_valid()) {
+                return right;
+            }
+        } else {
+            OpenMesh::FaceHandle right = ray_intersects_bvh(node->r, o, n);
+            if (right.is_valid()) {
+                return right;
+            }
+
+            OpenMesh::FaceHandle left = ray_intersects_bvh(node->l, o, n);
+            if (left.is_valid()) {
+                return left;
+            }
+        }
+    }
+
+    return OpenMesh::FaceHandle();
 }
 
 std::pair<bool, Vector3q> Mesh::star_center() {

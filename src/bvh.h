@@ -30,6 +30,28 @@ struct AABB
                (min[1] <= other.max[1] && max[1] >= other.min[1]) &&
                (min[2] <= other.max[2] && max[2] >= other.min[2]);
     }
+
+    bool ray_intersects(const Vector3q& origin, const Vector3q& direction) {
+        mpq_class t_entry;
+        mpq_class t_exit;
+
+        return ray_intersects(origin, direction, t_entry, t_exit);
+    }
+
+    // Ray-AABB intersection using the slab method
+    bool ray_intersects(const Vector3q& origin, const Vector3q& direction, mpq_class& t_entry, mpq_class& t_exit) {
+        Vector3q inv_direction = Vector3q(1, 1, 1).cwiseQuotient(direction);
+        Vector3q t0 = (min - origin).cwiseProduct(inv_direction);
+        Vector3q t1 = (max - origin).cwiseProduct(inv_direction);
+
+        Vector3q tClose = t0.cwiseMin(t1);
+        Vector3q tFar = t0.cwiseMax(t1);
+
+        t_entry = tClose.maxCoeff();
+        t_exit = tFar.minCoeff();
+
+        return t_exit >= t_entry;
+    }
 };
 
 // Bounding Volume Hierarchy Node

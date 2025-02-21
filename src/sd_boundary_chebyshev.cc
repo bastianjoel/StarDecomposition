@@ -2,6 +2,7 @@
 #include "assertion.h"
 #include "retet.h"
 #include "sd.h"
+#include "triray.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <cmath>
 #include <cstdio>
@@ -69,7 +70,7 @@ bool StarDecompositionBoundaryChebyshev::move_fix_vertex(Mesh& mesh, bool shrink
     auto nD = mesh.calc_normal(_cmpFixV.second) * (shrink ? 1 : -1);
     Vector3q n = nD.cast<mpq_class>();
 
-    auto opposite = get_opposite_face(vPos, n);
+    auto opposite = get_opposite_face(vPos, -n);
     if (!opposite.is_valid()) {
         std::cout << "Opposite face not found" << std::endl;
         return false;
@@ -252,9 +253,11 @@ bool StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenM
     std::pair<bool, Vector3q> cmpCenter;
     if (shouldCheck && !illegalTriangle) {
         cmpCenter = mesh.star_center();
+        /*
         if (!cmpCenter.first && illegalFaces.size() == 0 && move_fix_vertex(mesh, false)) {
             cmpCenter = std::make_pair(true, _cmpCenter);
         }
+        */
     }
 
 #ifdef GUI
@@ -296,48 +299,20 @@ bool StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenM
 
 OpenMesh::FaceHandle StarDecompositionBoundaryChebyshev::get_opposite_face(Mesh& mesh, const OpenMesh::FaceHandle& origin) {
     Vector3q vPos = mesh.face_center(origin);
-    Vector3q n = mesh.data(origin).normal_q();
+    Vector3q n = -mesh.data(origin).normal_q();
 
     return get_opposite_face(vPos, n);
 }
 
 OpenMesh::FaceHandle StarDecompositionBoundaryChebyshev::get_opposite_face(Mesh& mesh, const OpenMesh::VertexHandle& origin) {
     Vector3q vPos = mesh.data(origin).point_q();
-    auto n = -mesh.calc_normal(origin);
+    auto n = mesh.calc_normal(origin);
 
     return get_opposite_face(vPos, n.cast<mpq_class>());
 }
 
 OpenMesh::FaceHandle StarDecompositionBoundaryChebyshev::get_opposite_face(Vector3q vPos, Vector3q n) {
-    double distResult = -1;
-    Vector3q pResult;
-    OpenMesh::FaceHandle opposite;
-
-    // Find cutting boundary face
-    for (auto f : _mesh.faces()) {
-        auto r = _mesh.intersection_factor(vPos, n, f);
-        if (!r.first || r.second > 0) {
-            continue;
-        }
-
-        auto p = vPos + r.second * n;
-        if (!_mesh.point_on_face(f, p)) {
-            continue;
-        }
-
-        double dist = (vPos - p).unaryExpr([](mpq_class x) { return x.get_d(); }).norm();
-        if (dist == 0) {
-            continue;
-        }
-
-        if (distResult == -1 || dist < distResult) {
-            distResult = dist;
-            pResult = p;
-            opposite = f;
-        }
-    }
-
-    return opposite;
+    return _mesh.ray_intersects(vPos, n);
 }
 
 std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundaryChebyshev::get_fix_vertex_pos(Mesh& mesh, const OpenMesh::FaceHandle& hf) {

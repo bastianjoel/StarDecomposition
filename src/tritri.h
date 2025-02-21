@@ -125,8 +125,8 @@
   }                                         \
 }
 
-inline bool coplanar_tri_tri(Vector3q& N, Vector3q& V0, Vector3q& V1, Vector3q& V2,
-                     Vector3q& U0, Vector3q& U1, Vector3q& U2)
+inline bool coplanar_tri_tri(const Vector3q& N, const Vector3q& V0, const Vector3q& V1, const Vector3q& V2,
+                     const Vector3q& U0, const Vector3q& U1, const Vector3q& U2)
 {
   Vector3q A;
   short i0,i1;
@@ -166,7 +166,7 @@ inline bool coplanar_tri_tri(Vector3q& N, Vector3q& V0, Vector3q& V1, Vector3q& 
 }
 
 
-inline bool tri_tri_intersect(Vector3q& V0, Vector3q& V1, Vector3q& V2, Vector3q& N1, Vector3q& U0, Vector3q& U1, Vector3q& U2, Vector3q& N2)
+inline bool tri_tri_intersect(const Vector3q& V0, const Vector3q& V1, const Vector3q& V2, const Vector3q& N1, const Vector3q& U0, const Vector3q& U1, const Vector3q& U2, const Vector3q& N2)
 {
   mpq_class d1, d2;
   mpq_class du0, du1, du2, dv0, dv1, dv2;
@@ -241,7 +241,7 @@ inline bool tri_tri_intersect(Vector3q& V0, Vector3q& V1, Vector3q& V2, Vector3q
   return 1;
 }
 
-inline bool tri_tri_intersect(Vector3q& V0, Vector3q& V1, Vector3q& V2, Vector3q& U0, Vector3q& U1, Vector3q& U2)
+inline bool tri_tri_intersect(const Vector3q& V0, const Vector3q& V1, const Vector3q& V2, const Vector3q& U0, const Vector3q& U1, const Vector3q& U2)
 {
   Vector3q E1, E2;
   Vector3q N1, N2;
