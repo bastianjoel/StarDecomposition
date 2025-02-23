@@ -149,8 +149,13 @@ bool Mesh::triangle_intersects(const std::vector<Vector3q>& t, const Vector3q& n
 }
 
 OpenMesh::FaceHandle Mesh::ray_intersects(const Vector3q& o, const Vector3q& n) {
+    mpq_class distResult;
+    return ray_intersects(o, n, distResult);
+}
+
+OpenMesh::FaceHandle Mesh::ray_intersects(const Vector3q& o, const Vector3q& n, mpq_class& distResult) {
+    distResult = -1;
     if (!_bvh) {
-        double distResult = -1;
         OpenMesh::FaceHandle opposite;
         for (auto face : this->faces()) {
             std::vector<Vector3q> t;
@@ -164,28 +169,30 @@ OpenMesh::FaceHandle Mesh::ray_intersects(const Vector3q& o, const Vector3q& n) 
                 continue;
             }
 
-            double distD = dist.get_d();
-            if (distResult == -1 || distD < distResult) {
-                distResult = distD;
+            if (distResult == -1 || dist < distResult) {
+                distResult = dist;
                 opposite = face;
             }
         }
 
         return opposite;
     } else {
-        return ray_intersects_bvh(_bvh, o, n);
+        auto intersection = ray_intersects_bvh(_bvh, o, n);
+        distResult = intersection.second;
+
+        return intersection.first;
     }
 
     return OpenMesh::FaceHandle();
 }
 
-OpenMesh::FaceHandle Mesh::ray_intersects_bvh(BVHNode* node, const Vector3q& o, const Vector3q& n) {
+std::pair<OpenMesh::FaceHandle, mpq_class> Mesh::ray_intersects_bvh(BVHNode* node, const Vector3q& o, const Vector3q& n) {
     if (!node->aabb.ray_intersects(o, n)) {
-        return OpenMesh::FaceHandle();
+        return std::make_pair(OpenMesh::FaceHandle(), -1);
     }
 
     if (node->is_leaf) {
-        double distResult = -1;
+        mpq_class distResult = -1;
         OpenMesh::FaceHandle opposite;
         for (auto f : node->faces) {
             std::vector<Vector3q> t;
@@ -194,42 +201,42 @@ OpenMesh::FaceHandle Mesh::ray_intersects_bvh(BVHNode* node, const Vector3q& o, 
             }
 
             mpq_class dist;
-            if (tri_ray_intersect(o, n, t[0], t[1], t[2], dist) && (distResult == -1 || dist.get_d() < distResult)) {
-                distResult = dist.get_d();
+            if (tri_ray_intersect(o, n, t[0], t[1], t[2], dist) && (distResult == -1 || dist < distResult)) {
+                distResult = dist;
                 opposite = f;
             }
         }
 
-        return opposite;
+        return std::make_pair(opposite, distResult);
     } else {
         mpq_class leftDist, rightDist, rayExit;
         node->l->aabb.ray_intersects(o, n, leftDist, rayExit);
         node->r->aabb.ray_intersects(o, n, rightDist, rayExit);
 
         if (leftDist < rightDist) {
-            OpenMesh::FaceHandle left = ray_intersects_bvh(node->l, o, n);
-            if (left.is_valid()) {
+            auto left = ray_intersects_bvh(node->l, o, n);
+            if (left.first.is_valid()) {
                 return left;
             }
 
-            OpenMesh::FaceHandle right = ray_intersects_bvh(node->r, o, n);
-            if (right.is_valid()) {
+            auto right = ray_intersects_bvh(node->r, o, n);
+            if (right.first.is_valid()) {
                 return right;
             }
         } else {
-            OpenMesh::FaceHandle right = ray_intersects_bvh(node->r, o, n);
-            if (right.is_valid()) {
+            auto right = ray_intersects_bvh(node->r, o, n);
+            if (right.first.is_valid()) {
                 return right;
             }
 
-            OpenMesh::FaceHandle left = ray_intersects_bvh(node->l, o, n);
-            if (left.is_valid()) {
+            auto left = ray_intersects_bvh(node->l, o, n);
+            if (left.first.is_valid()) {
                 return left;
             }
         }
     }
 
-    return OpenMesh::FaceHandle();
+    return std::make_pair(OpenMesh::FaceHandle(), -1);
 }
 
 std::pair<bool, Vector3q> Mesh::star_center() {
@@ -301,38 +308,6 @@ std::vector<OpenMesh::HalfedgeHandle> Mesh::boundary_halfedges() {
     */
 
     return boundary_halfedges;
-}
-
-OpenMesh::FaceHandle Mesh::get_face_in_dir(const Vector3q& vPos, const Vector3q& n) {
-    double distResult = -1;
-    Vector3q pResult;
-    OpenMesh::FaceHandle opposite;
-
-    // Find cutting boundary face
-    for (auto f : faces()) {
-        auto r = intersection_factor(vPos, n, f);
-        if (!r.first || r.second > 0) {
-            continue;
-        }
-
-        auto p = vPos + r.second * n;
-        if (!point_on_face(f, p)) {
-            continue;
-        }
-
-        double dist = (vPos - p).unaryExpr([](mpq_class x) { return x.get_d(); }).norm();
-        if (dist == 0) {
-            continue;
-        }
-
-        if (distResult == -1 || dist < distResult) {
-            distResult = dist;
-            pResult = p;
-            opposite = f;
-        }
-    }
-
-    return opposite;
 }
 
 void Mesh::generate_bvh() {

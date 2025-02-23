@@ -39,6 +39,44 @@ void StarDecompositionBoundaryLp::finalize_component(Mesh& cmpMesh) {
     _mesh.generate_bvh();
 }
 
+/*
+std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& mesh, const OpenMesh::FaceHandle& hf) {
+    Vector3q vPos = mesh.face_center(hf);
+    Vector3q n = -mesh.data(hf).normal_q();
+
+    auto opposite = _mesh.ray_intersects(vPos, n);
+    if (!opposite.is_valid()) {
+        return std::make_pair(opposite, Vector3q::Zero());
+    }
+
+    n = mesh.data(hf).normal_q();
+    mpq_class r = mesh.intersection_factor(vPos, n, opposite).second / 2;
+    Vector3q p = vPos + r * n;
+
+    bool intersects;
+    do {
+        intersects = false;
+        for (auto fh : mesh.fh_range(hf)) {
+            auto v0 = mesh.to_vertex_handle(fh);
+            auto v1 = mesh.from_vertex_handle(fh);
+            std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), p };
+            if (_mesh.triangle_intersects(t, { v0, v1 }).is_valid()) {
+                intersects = true;
+                r /= 2;
+                p = vPos + r * n;
+                ASSERT(r > 1e-6 || r < -1e-6);
+                break;
+            }
+        }
+    } while (intersects);
+
+    // TODO: Check if there is a way to make this workaround unnecessary
+    p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
+
+    return std::make_pair(opposite, p);
+}
+*/
+
 Mesh StarDecompositionBoundaryLp::init_component(const OpenMesh::FaceHandle& startF) {
     Mesh mesh;
     std::vector<OpenMesh::VertexHandle> newHfVertices;
@@ -94,7 +132,6 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
     // Face would split mesh into two components
     std::vector<OpenMesh::FaceHandle> lineFaces;
     if (singleExistingEdge.is_valid() && !newFaceVertex.is_valid()) {
-        /*
         // Check if one direction consists of a "line" of faces
         auto vExFrom = _meshVertexMap[mesh.from_vertex_handle(singleExistingEdge)];
         auto vExTo = _meshVertexMap[mesh.to_vertex_handle(singleExistingEdge)];
@@ -139,8 +176,7 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
         if (!isLine) {
             return false;
         }
-        */
-        return false;
+        // return false;
     }
 
     bool valid = true;
@@ -170,23 +206,38 @@ LABEL:
         } else {
             // TODO: Center needs to be moved
             auto boundary = mesh.boundary_halfedges();
-            // auto opposite = _mesh.get_face_in_dir(cmpCenter.second, -meshNormal);
+            mpq_class t;
+            auto opposite = _mesh.ray_intersects(cmpCenter.second, -meshNormal, t);
 
-            for (auto h : boundary) {
-                auto v0 = mesh.to_vertex_handle(h);
-                auto v1 = mesh.from_vertex_handle(h);
-                std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), cmpCenter.second - meshNormal * 1e-4 };
-                auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
-                if (intersects.is_valid()) {
-                    cmpCenter.second = cmpCenter.second - meshNormal * 1e-4;
-                    valid = false;
+            Vector3q p;
+            for (int i = 1; i < 4; i++) {
+                valid = true;
+                p = cmpCenter.second - meshNormal * (t / pow(2, i));
+                for (auto h : boundary) {
+                    auto v0 = mesh.to_vertex_handle(h);
+                    auto v1 = mesh.from_vertex_handle(h);
+                    std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), p };
+                    auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
+                    if (intersects.is_valid()) {
+                        cmpCenter.second = p;
+                        valid = false;
+                        break;
+                    }
+                }
+
+                if (valid) {
                     break;
                 }
             }
 
             if (valid) {
                 _cmpCenter = cmpCenter.second;
-                _cmpFixV = cmpCenter.second - meshNormal * 1e-4;
+                _cmpFixV = p;
+#ifdef GUI
+                // _viewer->clear_extras();
+                _viewer->add_sphere(_cmpCenter.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.01, { 0, 1, 0 });
+                _viewer->add_sphere(_cmpFixV.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.01, { 0, 1, 1 });
+#endif
             }
         }
     } else {

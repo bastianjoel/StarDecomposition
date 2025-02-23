@@ -6,6 +6,7 @@
 #include <Eigen/src/Core/Matrix.h>
 #include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
 #include <OpenMesh/Core/Geometry/EigenVectorT.hh>
+#include <utility>
 #include "assertion.h"
 #include "bvh.h"
 #include "lp.h"
@@ -50,7 +51,7 @@ private:
     OpenMesh::HalfedgeHandle lastBoundaryHalfedge;
     BVHNode* _bvh = nullptr;
     OpenMesh::FaceHandle triangle_intersects_bvh(BVHNode* node, const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices);
-    OpenMesh::FaceHandle ray_intersects_bvh(BVHNode* node, const Vector3q& p, const Vector3q& n);
+    std::pair<OpenMesh::FaceHandle, mpq_class> ray_intersects_bvh(BVHNode* node, const Vector3q& p, const Vector3q& n);
 public:
     ~Mesh() {
         if (_bvh != nullptr) {
@@ -70,12 +71,12 @@ public:
     std::vector<OpenMesh::HalfedgeHandle> boundary_halfedges();
 
     bool point_on_face(OpenMesh::FaceHandle fh, Vector3q p);
-    OpenMesh::FaceHandle get_face_in_dir(const Vector3q& vPos, const Vector3q& n);
 
     OpenMesh::FaceHandle triangle_intersects(const std::vector<Vector3q>& t, const std::vector<OpenMesh::VertexHandle>& borderVertices);
     bool triangle_intersects(const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices, const OpenMesh::FaceHandle& face);
 
     OpenMesh::FaceHandle ray_intersects(const Vector3q& o, const Vector3q& n);
+    OpenMesh::FaceHandle ray_intersects(const Vector3q& o, const Vector3q& n, mpq_class& factor);
 
     void generate_bvh();
     BVHNode* generate_bvh(std::vector<OpenMesh::FaceHandle>& faces, int depth = 0);
