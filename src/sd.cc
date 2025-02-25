@@ -94,8 +94,8 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     } else if (algorithm == "boundary") {
         std::cout << "boundary" << std::endl;
         StarDecompositionBoundaryChebyshev decomposer(N);
-        decomposer.set_viewer(&viewer);
 #ifdef GUI
+        decomposer.set_viewer(&viewer);
         std::thread viewer_thread([]() {
             viewer.start(callback, "..", "Star Decomposition Maps");
         });
@@ -108,8 +108,8 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     } else {
         std::cout << "boundary (lp center move)" << std::endl;
         StarDecompositionBoundaryLp decomposer(N);
-        decomposer.set_viewer(&viewer);
 #ifdef GUI
+        decomposer.set_viewer(&viewer);
         std::thread viewer_thread([]() {
             viewer.start(callback, "..", "Star Decomposition Maps");
         });
@@ -177,14 +177,13 @@ std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
     std::cout << "Decompose using ";
     if (algorithm == "boundary") {
         std::cout << "boundary" << std::endl;
-        StarDecompositionBoundaryChebyshev decomposer(N) 
+        StarDecompositionBoundaryChebyshev decomposer(N);
         std::vector<Vector3q> centers = decomposer.centers();
         return decomposer.components();
     }
 
     std::cout << "boundary (lp center move)" << std::endl;
     StarDecompositionBoundaryLp decomposer(N);
-    decomposer.set_viewer(&viewer);
     std::vector<Vector3q> centers = decomposer.centers();
 
     return decomposer.components();

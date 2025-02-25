@@ -149,7 +149,9 @@ void StarDecompositionBoundary::start() {
                 continue;
             }
 
+#ifdef GUI
             _viewer->queue_update();
+#endif
             visited.clear();
             _mesh.property(_selected, nextH) = true;
             for (auto he : _mesh.fh_range(nextH)) {

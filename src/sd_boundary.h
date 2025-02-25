@@ -1,9 +1,12 @@
 #pragma once
 
 #include "mesh.h"
-#include "viewer.h"
 #include "volume_mesh.h"
 #include "vectorq.h"
+
+#ifdef GUI
+#include "viewer.h"
+#endif
 
 class StarDecompositionBoundary {
 public:
