@@ -40,9 +40,23 @@ struct AABB
 
     // Ray-AABB intersection using the slab method
     bool ray_intersects(const Vector3q& origin, const Vector3q& direction, mpq_class& t_entry, mpq_class& t_exit) {
-        Vector3q inv_direction = Vector3q(1, 1, 1).cwiseQuotient(direction);
-        Vector3q t0 = (min - origin).cwiseProduct(inv_direction);
-        Vector3q t1 = (max - origin).cwiseProduct(inv_direction);
+        int valid = 0;
+        for (int i = 0; i < 3; i++) {
+            if (direction[i] != 0) {
+                valid = i;
+            }
+        }
+
+        Vector3q t0, t1;
+        for (int i = 0; i < 3; i++) {
+            if (direction[i] != 0) {
+                t0[i] = (min[i] - origin[i]) / direction[i];
+                t1[i] = (max[i] - origin[i]) / direction[i];
+            } else {
+                t0[valid] = (min[valid] - origin[valid]) / direction[valid];
+                t1[valid] = (max[valid] - origin[valid]) / direction[valid];
+            }
+        }
 
         Vector3q tClose = t0.cwiseMin(t1);
         Vector3q tFar = t0.cwiseMax(t1);
