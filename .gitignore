@@ -1,5 +1,7 @@
+.clangd
 .cache/
 .vscode/
 build/
+build-gui/
 debug/
 compile_commands.json
