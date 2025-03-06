@@ -195,6 +195,10 @@ std::pair<OpenMesh::FaceHandle, mpq_class> Mesh::ray_intersects_bvh(BVHNode* nod
         mpq_class distResult = -1;
         OpenMesh::FaceHandle opposite;
         for (auto f : node->faces) {
+            if (!f.is_valid()) {
+                continue;
+            }
+
             std::vector<Vector3q> t;
             for (auto v : fv_range(f)) {
                 t.push_back(data(v).point_q());
