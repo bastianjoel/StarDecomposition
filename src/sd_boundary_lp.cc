@@ -18,86 +18,71 @@ void StarDecompositionBoundaryLp::finalize_component(Mesh& cmpMesh) {
         }
     }
 
+    std::set<OpenMesh::VertexHandle> addedVertices;
     for (auto h : cmpMesh.halfedges()) {
         if (cmpMesh.is_boundary(h)) {
-            std::vector<std::vector<std::pair<OpenMesh::HalfedgeHandle, OpenMesh::HalfedgeHandle>>> boundaries = { {} };
+            std::vector<std::pair<OpenMesh::HalfedgeHandle, OpenMesh::HalfedgeHandle>> boundary = {};
             OpenMesh::HalfedgeHandle next = h;
             OpenMesh::HalfedgeHandle originalH = _mesh.find_halfedge(_meshVertexMap[cmpMesh.to_vertex_handle(h)], _meshVertexMap[cmpMesh.from_vertex_handle(h)]);
             OpenMesh::HalfedgeHandle originalNext = originalH;
-            std::set<OpenMesh::VertexHandle> addedVertices;
             do {
-                boundaries[0].push_back(std::make_pair(next, originalNext));
-                std::cout << _mesh.from_vertex_handle(originalNext).idx() << "-" << _mesh.to_vertex_handle(originalNext).idx() << " ";
-                if (addedVertices.find(cmpMesh.to_vertex_handle(next)) != addedVertices.end()) {
-                    std::vector<std::pair<OpenMesh::HalfedgeHandle, OpenMesh::HalfedgeHandle>> boundary;
-                    // Remove from boundary 0 until edge with from vertex equal to to vertex of next is found
-                    do {
-                        boundary.push_back(boundaries[0].back());
-                        boundaries[0].pop_back();
-                    } while (cmpMesh.from_vertex_handle(boundary.back().first) != cmpMesh.to_vertex_handle(next));
-                    boundaries.push_back(boundary);
-                } else {
-                    addedVertices.insert(cmpMesh.to_vertex_handle(next));
-                }
+                boundary.push_back(std::make_pair(next, originalNext));
                 next = cmpMesh.next_halfedge_handle(next);
                 originalNext = _mesh.prev_halfedge_handle(originalNext);
             } while (next != h && originalNext != originalH);
             std::cout << std::endl;
 
-            std::cout << "Boundaries: " << boundaries.size() << std::endl;
-            for (auto boundary : boundaries) {
-                std::cout << "Boundary: " << boundary.size() << std::endl;
-                Vector3q center = Vector3q::Zero();
+            std::cout << "Boundary: " << boundary.size() << std::endl;
+            Vector3q center = Vector3q::Zero();
+            for (auto h : boundary) {
+                center += _mesh.data(_mesh.from_vertex_handle(h.second)).point_q();
+                std::cout << _mesh.from_vertex_handle(h.second).idx() << " ";
+            }
+            std::cout << std::endl;
+            center /= boundary.size();
+            center = center.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
+
+            mpq_class t = 1;
+            // TODO: Calc real normal
+            _mesh.generate_bvh();
+            auto normal = center - _cmpCenter;
+            bool valid = true;
+            Vector3q p;
+            for (int i = 0; i < 4; i++) {
+                valid = true;
+                p = _cmpCenter + normal * (t / pow(2, i));
+
                 for (auto h : boundary) {
-                    center += _mesh.data(_mesh.from_vertex_handle(h.second)).point_q();
-                    std::cout << _mesh.from_vertex_handle(h.second).idx() << " ";
-                }
-                std::cout << std::endl;
-                center /= boundary.size();
-                center = center.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
-
-                mpq_class t = 1;
-                // TODO: Calc real normal
-                _mesh.generate_bvh();
-                auto normal = center - _cmpCenter;
-                bool valid = true;
-                Vector3q p;
-                for (int i = 0; i < 4; i++) {
-                    valid = true;
-                    p = _cmpCenter + normal * (t / pow(2, i));
-
-                    for (auto h : boundary) {
-                        auto v0 = cmpMesh.to_vertex_handle(h.first);
-                        auto v1 = cmpMesh.from_vertex_handle(h.first);
-                        std::vector<Vector3q> t = { cmpMesh.data(v0).point_q(), cmpMesh.data(v1).point_q(), p };
-                        auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
-                        if (intersects.is_valid()) {
-                            valid = false;
-                            break;
-                        }
-                    }
-
-                    if (valid) {
-                        std::cout << "Valid" << std::endl;
+                    auto v0 = cmpMesh.to_vertex_handle(h.first);
+                    auto v1 = cmpMesh.from_vertex_handle(h.first);
+                    std::vector<Vector3q> t = { cmpMesh.data(v0).point_q(), cmpMesh.data(v1).point_q(), p };
+                    auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
+                    if (intersects.is_valid()) {
+                        valid = false;
                         break;
                     }
                 }
 
-                auto fixVertexPos = _cmpFixV;
                 if (valid) {
-                    fixVertexPos = p;
+                    std::cout << "Valid" << std::endl;
+                    break;
                 }
+            }
 
-                bool invalids = false;
-                auto fixVertex = _mesh.add_vertex_q(fixVertexPos);
-                auto cmpFixVertex = cmpMesh.add_vertex_q(fixVertexPos);
-                for (auto h : boundary) {
-                    cmpMesh.add_face(cmpMesh.from_vertex_handle(h.first), cmpMesh.to_vertex_handle(h.first), cmpFixVertex);
-                    auto f = _mesh.add_face(_mesh.from_vertex_handle(h.second), _mesh.to_vertex_handle(h.second), fixVertex);
-                    if (f.is_valid()) {
-                        _mesh.update_normal_q(f);
-                        _mesh.property(_selected, f) = false;
-                    }
+            auto fixVertexPos = _cmpFixV;
+            if (valid) {
+                fixVertexPos = p;
+            }
+
+            bool invalids = false;
+            auto fixVertex = _mesh.add_vertex_q(fixVertexPos);
+            auto cmpFixVertex = cmpMesh.add_vertex_q(fixVertexPos);
+            for (auto h : boundary) {
+                cmpMesh.add_face(cmpMesh.from_vertex_handle(h.first), cmpMesh.to_vertex_handle(h.first), cmpFixVertex);
+                auto f = _mesh.add_face(_mesh.from_vertex_handle(h.second), _mesh.to_vertex_handle(h.second), fixVertex);
+                if (f.is_valid()) {
+                    _mesh.update_normal_q(f);
+                    _mesh.property(_selected, f) = false;
                 }
             }
         }
