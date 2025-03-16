@@ -2,6 +2,8 @@
 #include "retet.h"
 #include "sd.h"
 
+#define SAVE_DEBUG_MESHES 1
+
 StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _mesh(m) {
     _mesh.add_property(_selected);
     for (auto v : _mesh.vertices()) {
@@ -96,9 +98,12 @@ void StarDecompositionBoundary::add_component(const Mesh& mesh) {
 }
 
 void StarDecompositionBoundary::fallback(const Mesh& mesh) {
-    auto components = sd(_mesh, "tet");
-    for (auto m : components) {
-        _components.push_back(m);
+    while (mesh.faces_empty() == false) {
+        auto isolatedCmp = _mesh.extract_isolated_cmp();
+        auto components = sd(isolatedCmp, "tet");
+        for (auto m : components) {
+            _components.push_back(m);
+        }
     }
 }
 
@@ -194,9 +199,6 @@ void StarDecompositionBoundary::start() {
             startOffset = 0;
             resets = 0;
             bestSinceReset = 0;
-#ifdef GUI
-            _viewer->clear_extras();
-#endif
         } else if (resets > 10) {
             fallback(_mesh);
             break;
@@ -214,6 +216,9 @@ void StarDecompositionBoundary::start() {
                 bestSinceReset = (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
             }
         }
+#ifdef GUI
+        _viewer->clear_extras();
+#endif
     }
 
     this->_computed = true;

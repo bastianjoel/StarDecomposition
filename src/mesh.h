@@ -70,6 +70,9 @@ public:
     std::pair<bool, mpq_class> intersection_factor(const Vector3q& p, const Vector3q& dir, OpenMesh::FaceHandle face);
     std::vector<OpenMesh::HalfedgeHandle> boundary_halfedges();
 
+    Mesh extract(const std::set<OpenMesh::HalfedgeHandle>& boundary);
+    Mesh extract_isolated_cmp();
+
     bool point_on_face(OpenMesh::FaceHandle fh, Vector3q p);
 
     OpenMesh::FaceHandle triangle_intersects(const std::vector<Vector3q>& t, const std::vector<OpenMesh::VertexHandle>& borderVertices);

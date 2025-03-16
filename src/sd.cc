@@ -158,6 +158,10 @@ std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
 #ifdef GUI
     VolumeMesh M;
     if (!retetrahedrize(N, M)) {
+        if (!OpenMesh::IO::write_mesh(N, "debug/error.obj")) {
+            std::cerr << "write error\n";
+            exit(1);
+        }
         return {};
     }
 
@@ -167,6 +171,10 @@ std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
     if (algorithm == "tet") {
         VolumeMesh M;
         if (!retetrahedrize(N, M)) {
+            if (!OpenMesh::IO::write_mesh(N, "debug/error.obj")) {
+                std::cerr << "write error\n";
+                exit(1);
+            }
             return {};
         }
 

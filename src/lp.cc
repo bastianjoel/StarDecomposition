@@ -62,6 +62,9 @@ std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::V
     if (sol.is_infeasible()) {
         // std::cout << "Infeasible" << std::endl;
         return std::make_pair(INVALID, Eigen::Vector3d::Zero());
+    } else if (sol.is_unbounded()) {
+        // std::cout << "Unbounded" << std::endl;
+        return std::make_pair(UNBOUNDED, Eigen::Vector3d::Zero());
     }
 
     return std::make_pair(VALID, x);

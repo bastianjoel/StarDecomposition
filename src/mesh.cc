@@ -1,6 +1,7 @@
 #include "mesh.h"
 #include "triray.h"
 #include <algorithm>
+#include <queue>
 #include <set>
 
 Vector3q Mesh::face_center(OpenMesh::FaceHandle fh) {
@@ -312,6 +313,55 @@ std::vector<OpenMesh::HalfedgeHandle> Mesh::boundary_halfedges() {
     */
 
     return boundary_halfedges;
+}
+
+Mesh Mesh::extract(const std::set<OpenMesh::HalfedgeHandle>& boundary) {
+    Mesh extracted_mesh;
+    std::set<Mesh::FaceHandle> visited_faces;
+    std::queue<Mesh::FaceHandle> faces_to_process;
+
+    return extracted_mesh;
+}
+
+Mesh Mesh::extract_isolated_cmp() {
+    Mesh extracted_mesh;
+    std::set<Mesh::FaceHandle> visited_faces;
+    std::queue<Mesh::FaceHandle> faces_to_process;
+    std::map<Mesh::VertexHandle, Mesh::VertexHandle> old_to_new_vertices;
+    std::cout << "Extracting isolated component" << std::endl;
+    faces_to_process.push(*faces_begin());
+    visited_faces.insert(*faces_begin());
+    std::cout << "Read begins" << std::endl;
+
+    // Flood fill
+    while (!faces_to_process.empty()) {
+        auto face = faces_to_process.front();
+        faces_to_process.pop();
+
+        for (auto heh : Mesh::fh_range(face)) {
+            auto neighbor = Mesh::opposite_face_handle(heh);
+            if (neighbor.is_valid() && visited_faces.find(neighbor) == visited_faces.end()) {
+                faces_to_process.push(neighbor);
+                visited_faces.insert(neighbor);
+            }
+        }
+
+        // Add face to extracted mesh
+        std::vector<Mesh::VertexHandle> vertices;
+        for (auto v : Mesh::fv_range(face)) {
+            if (old_to_new_vertices.find(v) == old_to_new_vertices.end()) {
+                auto new_v = extracted_mesh.add_vertex(Mesh::point(v));
+                old_to_new_vertices[v] = new_v;
+            }
+            vertices.push_back(old_to_new_vertices[v]);
+        }
+        extracted_mesh.add_face(vertices);
+
+        this->delete_face(face);
+    }
+    garbage_collection();
+
+    return extracted_mesh;
 }
 
 void Mesh::generate_bvh() {

@@ -13,7 +13,7 @@ public:
     StarDecompositionBoundaryLp(VolumeMesh& vMesh) : StarDecompositionBoundary(vMesh) {}
 
 private:
-    std::pair<StarCenterResult, Vector3q> has_valid_center(Mesh& mesh, Vector3q normal);
+    std::pair<StarCenterResult, Vector3q> has_valid_center(Mesh& mesh, Vector3q& normal);
 
     Vector3q _cmpNormal = Vector3q();
     Vector3q _cmpCenter = Vector3q();
