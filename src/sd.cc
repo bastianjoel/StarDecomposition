@@ -130,7 +130,6 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
             n_cuts = index;
         }
     }
-    std::cout << n_cuts + 1 << " components" << std::endl;
     std::vector<VolumeMesh> components(n_cuts + 1);
 
     int n_skips = 0;
