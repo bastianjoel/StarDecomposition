@@ -62,6 +62,11 @@ int main(int argc, char** argv) {
         N_filename = path + SEP + "meshes" + SEP + "thumb.vtk";
     }
 
+    std::chrono::steady_clock::time_point begin, end;
+    if (benchMode) {
+        std::cout.setstate(std::ios_base::failbit);
+        begin = std::chrono::steady_clock::now();
+    }
     std::vector<VolumeMesh> components;
     std::string extension = N_filename.substr(N_filename.rfind('.') + 1);
     if (extension == "obj" || extension == "stl" || extension == "ply") {
@@ -85,11 +90,34 @@ int main(int argc, char** argv) {
         components = sd(N, algorithm);
     }
 
-    if (components.size() == 0) {
+    std::cout << components.size() << " components" << std::endl;
+
+    if (benchMode) {
+        end = std::chrono::steady_clock::now();
+        std::cout.clear();
+        // filename,algorithm,time,result_components,result_cell_counts,result_boundary_face_counts
+        std::cout << N_filename << "," << algorithm << ",";
+        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << ",";
+        std::cout << components.size() << ",";
+        for (int i = 0; i < components.size(); i++) {
+            std::cout << components[i].n_cells();
+            if (i < components.size() - 1) {
+                std::cout << "|";
+            }
+        }
+        std::cout << ",";
+        for (int i = 0; i < components.size(); i++) {
+            std::cout << components[i].boundary_halffaces().size();
+            if (i < components.size() - 1) {
+                std::cout << "|";
+            }
+        }
+        std::cout << std::endl;
+        
         return 0;
     }
 
-    if (benchMode) {
+    if (components.size() == 0) {
         return 0;
     }
 

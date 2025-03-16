@@ -10,6 +10,7 @@ endif()
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 option(GUI "GUI" ON)
+option(SAVE_DEBUG_MESHES "SAVE_DEBUG_MESHES" ON)
 
 # Eigen
 find_package(Eigen3 REQUIRED CONFIG)

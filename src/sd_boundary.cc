@@ -2,8 +2,6 @@
 #include "retet.h"
 #include "sd.h"
 
-#define SAVE_DEBUG_MESHES 1
-
 StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _mesh(m) {
     _mesh.add_property(_selected);
     for (auto v : _mesh.vertices()) {
@@ -218,6 +216,5 @@ void StarDecompositionBoundary::start() {
         }
     }
 
-    std::cout << _components.size() << " components" << std::endl;
     this->_computed = true;
 }
