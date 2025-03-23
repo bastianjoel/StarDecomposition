@@ -136,6 +136,7 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
     // Face would split mesh into two components
     std::vector<OpenMesh::FaceHandle> lineFaces;
     if (singleExistingEdge.is_valid() && !newFaceVertex.is_valid()) {
+        /*
         // Check if one direction consists of a "line" of faces
         auto vExFrom = _meshVertexMap[mesh.from_vertex_handle(singleExistingEdge)];
         auto vExTo = _meshVertexMap[mesh.to_vertex_handle(singleExistingEdge)];
@@ -180,7 +181,8 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
         if (!isLine) {
             return false;
         }
-        // return false;
+        */
+        return false;
     }
 
     bool valid = true;
@@ -203,7 +205,13 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
     }
     addedFacesNormal /= addedFaces;
 
-    Vector3q meshNormal = (_cmpNormal * (mesh.n_faces() - addedFaces) / mesh.n_faces()) + (addedFacesNormal * (addedFaces / mesh.n_faces()));
+    // Vector3q meshNormal = (_cmpNormal * (mesh.n_faces() - addedFaces) / mesh.n_faces()) + (addedFacesNormal * (addedFaces / mesh.n_faces()));
+    Vector3q meshNormal = Vector3q::Zero();
+    for (auto f : mesh.faces()) {
+        meshNormal += mesh.data(f).normal_q();
+    }
+    meshNormal /= mesh.n_faces();
+
     if ((_mesh.data(*_mesh.fv_begin(newFace)).point_q() - _cmpCenter).dot(_mesh.data(newFace).normal_q()) <= 0) {
 LABEL:
         auto cmpCenter = has_valid_center(mesh, meshNormal);
@@ -217,8 +225,8 @@ LABEL:
                 _cmpFixV = p.value();
 #ifdef GUI
                 // _viewer->clear_extras();
-                _viewer->add_sphere(_cmpCenter.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.01, { 0, 1, 0 });
-                _viewer->add_sphere(_cmpFixV.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.01, { 0, 1, 1 });
+                _viewer->add_sphere(_cmpCenter.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.001, { 0, 1, 0 });
+                _viewer->add_sphere(_cmpFixV.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.001, { 0, 1, 1 });
 #endif
             } else {
                 valid = false;
@@ -236,6 +244,10 @@ LABEL:
                     break;
                 }
             }
+        }
+
+        if (!is_valid_component(mesh, _cmpFixV)) {
+            goto LABEL;
         }
     }
 
@@ -283,17 +295,19 @@ LABEL:
 std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& mesh, const Vector3q& cPos, const Vector3q& n) {
     mpq_class t;
     auto normal = n;
-    auto opposite = _mesh.ray_intersects(cPos, -normal, t);
+    auto opposite = _mesh.ray_intersects(cPos - normal * 1e-4, -normal, t);
     if ((_mesh.data(*_mesh.fv_begin(opposite)).point_q() - _cmpCenter).dot(_mesh.data(opposite).normal_q()) <= 0) {
-        opposite = _mesh.ray_intersects(cPos, normal, t);
+        normal = -n;
+        opposite = _mesh.ray_intersects(cPos - normal * 1e-4, -normal, t);
     }
 
     if ((_mesh.data(*_mesh.fv_begin(opposite)).point_q() - _cmpCenter).dot(_mesh.data(opposite).normal_q()) > 0) {
         Vector3q p;
         auto boundary = mesh.boundary_halfedges();
-        for (int i = 1; i < 4; i++) {
+        for (int i = 0; i < 4; i++) {
             bool valid = true;
             p = cPos - normal * (t / pow(2, i));
+
             for (auto h : boundary) {
                 auto v0 = mesh.to_vertex_handle(h);
                 auto v1 = mesh.from_vertex_handle(h);
@@ -305,7 +319,7 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
                 }
             }
 
-            if (valid) {
+            if (valid && is_valid_component(mesh, p)) {
                 return p;
             }
         }
@@ -331,4 +345,40 @@ std::pair<StarCenterResult, Vector3q> StarDecompositionBoundaryLp::has_valid_cen
 
     Vector3q newCenter = result.second.cast<mpq_class>();
     return std::make_pair(result.first, newCenter);
+}
+
+bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, const Vector3q& fixV) {
+    std::vector<Eigen::Vector3d> positions;
+    std::vector<Eigen::Vector3d> normals;
+    for (auto face : mesh.faces()) {
+        if (face.is_valid() && !face.deleted()) {
+            positions.push_back(mesh.point(mesh.to_vertex_handle(mesh.halfedge_handle(face))));
+            normals.push_back(mesh.normal(face).normalized());
+        }
+
+        // Add to viewer
+        std::vector<Eigen::Vector3d> t;
+        for (auto fh : mesh.fh_range(face)) {
+            t.push_back(mesh.point(mesh.from_vertex_handle(fh)));
+        }
+    }
+
+    auto fixVD = fixV.unaryExpr([](mpq_class x) { return x.get_d(); });
+    auto boundary = mesh.boundary_halfedges();
+    for (auto h : boundary) {
+        auto v0 = mesh.to_vertex_handle(h);
+        auto v1 = mesh.from_vertex_handle(h);
+        auto n = -(mesh.point(v1) - mesh.point(v0)).cross(fixVD - mesh.point(v0)).normalized();
+        positions.push_back(fixVD);
+        normals.push_back(n);
+    }
+
+    auto center = kernel_chebyshev_center(positions, normals);
+    for (int i = 0; i < positions.size(); i++) {
+        if ((positions[i] - center).dot(normals[i]) <= 0) {
+            return false;
+        }
+    }
+
+    return true;
 }

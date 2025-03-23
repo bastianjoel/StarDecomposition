@@ -25,4 +25,5 @@ private:
     void finalize_component(Mesh& mesh);
 
     std::optional<Vector3q> get_fix_vertex_pos(Mesh& mesh, const Vector3q& vPos, const Vector3q& n); 
+    bool is_valid_component(Mesh& mesh, const Vector3q& fixV);
 };
