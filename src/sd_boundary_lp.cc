@@ -207,37 +207,45 @@ LABEL:
             // TODO: Center needs to be moved
             auto boundary = mesh.boundary_halfedges();
             mpq_class t;
-            auto opposite = _mesh.ray_intersects(cmpCenter.second, -meshNormal, t);
+            auto normal = meshNormal;
+            auto opposite = _mesh.ray_intersects(cmpCenter.second, -normal, t);
+            if ((_mesh.data(*_mesh.fv_begin(opposite)).point_q() - _cmpCenter).dot(_mesh.data(opposite).normal_q()) <= 0) {
+                opposite = _mesh.ray_intersects(cmpCenter.second, normal, t);
+            }
 
-            Vector3q p;
-            for (int i = 1; i < 4; i++) {
-                valid = true;
-                p = cmpCenter.second - meshNormal * (t / pow(2, i));
-                for (auto h : boundary) {
-                    auto v0 = mesh.to_vertex_handle(h);
-                    auto v1 = mesh.from_vertex_handle(h);
-                    std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), p };
-                    auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
-                    if (intersects.is_valid()) {
-                        cmpCenter.second = p;
-                        valid = false;
+            if ((_mesh.data(*_mesh.fv_begin(opposite)).point_q() - _cmpCenter).dot(_mesh.data(opposite).normal_q()) > 0) {
+                Vector3q p;
+                for (int i = 1; i < 4; i++) {
+                    valid = true;
+                    p = cmpCenter.second - normal * (t / pow(2, i));
+                    for (auto h : boundary) {
+                        auto v0 = mesh.to_vertex_handle(h);
+                        auto v1 = mesh.from_vertex_handle(h);
+                        std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), p };
+                        auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
+                        if (intersects.is_valid()) {
+                            cmpCenter.second = p;
+                            valid = false;
+                            break;
+                        }
+                    }
+
+                    if (valid) {
                         break;
                     }
                 }
 
                 if (valid) {
-                    break;
-                }
-            }
-
-            if (valid) {
-                _cmpCenter = cmpCenter.second;
-                _cmpFixV = p;
+                    _cmpCenter = cmpCenter.second;
+                    _cmpFixV = p;
 #ifdef GUI
-                // _viewer->clear_extras();
-                _viewer->add_sphere(_cmpCenter.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.01, { 0, 1, 0 });
-                _viewer->add_sphere(_cmpFixV.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.01, { 0, 1, 1 });
+                    // _viewer->clear_extras();
+                    _viewer->add_sphere(_cmpCenter.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.01, { 0, 1, 0 });
+                    _viewer->add_sphere(_cmpFixV.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.01, { 0, 1, 1 });
 #endif
+                }
+            } else {
+                valid = false;
             }
         }
     } else {
