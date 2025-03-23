@@ -8,7 +8,7 @@
 #endif
 
 void print_usage(std::string arg0, std::string path) {
-    std::cout << "Usage: " << arg0 << " <N> [-a tet|boundary-lp|boundary] [-o <out_dir>]" << std::endl;
+    std::cout << "Usage: " << arg0 << " <N> [-a tet|boundary-lp|boundary] [-o <out_dir>] [-b] [-f]" << std::endl;
     std::cout << "  e.g. " << arg0 << " " << path << SEP << "meshes" << SEP << "thumb.vtk" << std::endl;
 }
 
@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
     std::string out_dir = "";
     std::string algorithm = "";
     bool benchMode = false;
+    bool feasibilityCheck = false;
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
         if (arg.at(0) == '-') {
@@ -28,6 +29,9 @@ int main(int argc, char** argv) {
                 case 'h':
                     print_usage(arg0, path);
                     return 0;
+                case 'f':
+                    feasibilityCheck = true;
+                    break;
                 case 'b':
                     benchMode = true;
                     break;
@@ -92,13 +96,25 @@ int main(int argc, char** argv) {
 
     std::cout << components.size() << " components" << std::endl;
 
+    int feasible = -1;
+    if (feasibilityCheck) {
+        for (int i = 0; i < components.size(); i++) {
+            VolumeMesh& Mi = components[i];
+            auto res = Mi.to_mesh().star_center();
+            if (!res.first) {
+                feasible = i;
+                break;
+            }
+        }
+    }
+
     if (benchMode) {
         end = std::chrono::steady_clock::now();
         std::cout.clear();
-        // filename,algorithm,time,result_components,result_cell_counts,result_boundary_face_counts
+        // filename,algorithm,time,result_feasible,result_components,result_cell_counts,result_boundary_face_counts
         std::cout << N_filename << "," << algorithm << ",";
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << ",";
-        std::cout << components.size() << ",";
+        std::cout << (feasible == -1) << "," << components.size() << ",";
         for (int i = 0; i < components.size(); i++) {
             std::cout << components[i].n_cells();
             if (i < components.size() - 1) {
@@ -115,6 +131,8 @@ int main(int argc, char** argv) {
         std::cout << std::endl;
         
         return 0;
+    } else if (feasible != -1) {
+        std::cout << "Component " << feasible << " is infeasible" << std::endl;
     }
 
     if (components.size() == 0) {
