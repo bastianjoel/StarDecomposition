@@ -137,13 +137,18 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     for (int i = 0; i <= n_cuts; i++) {
         VolumeMesh& S = components[i];
 
+        std::map<Vertex, Vertex> vmap;
         std::vector<Cell> cells;
         for (auto c : N.cells()) {
             if (cmp[c] == i) {
                 cells.push_back(c);
                 std::vector<Vertex> vertices;
                 for (auto cv : N.tet_vertices(c)) {
-                    vertices.push_back(S.add_vertex(N.position(cv)));
+                    if (vmap.find(cv) == vmap.end()) {
+                        vmap[cv] = S.add_vertex(N.position(cv));
+                    }
+
+                    vertices.push_back(vmap[cv]);
                 }
                 S.add_cell(vertices, true);
             }

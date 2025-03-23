@@ -100,10 +100,10 @@ int main(int argc, char** argv) {
     if (feasibilityCheck) {
         for (int i = 0; i < components.size(); i++) {
             VolumeMesh& Mi = components[i];
-            auto res = Mi.to_mesh().star_center();
-            if (!res.first) {
+            auto res = Mi.to_mesh();
+            if (!res.star_center().first) {
                 feasible = i;
-                break;
+                std::cout << "Component " << i << " is infeasible" << std::endl;
             }
         }
     }
@@ -131,8 +131,6 @@ int main(int argc, char** argv) {
         std::cout << std::endl;
         
         return 0;
-    } else if (feasible != -1) {
-        std::cout << "Component " << feasible << " is infeasible" << std::endl;
     }
 
     if (components.size() == 0) {

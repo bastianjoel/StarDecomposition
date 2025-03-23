@@ -243,6 +243,8 @@ public:
 
     bool degenerate_or_inverted(::Cell c);
 
+    Mesh to_mesh_q();
+
     Mesh to_mesh();
 
 private:
