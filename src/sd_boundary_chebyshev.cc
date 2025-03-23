@@ -1,15 +1,11 @@
 #include "sd_boundary_chebyshev.h"
 #include "assertion.h"
-#include "retet.h"
-#include "sd.h"
-#include "triray.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
 #include <OpenMesh/Core/IO/MeshIO.hh>
-#include <queue>
 
 void StarDecompositionBoundaryChebyshev::finalize_component(Mesh& cmpMesh) {
     Vector3q openingCenter = Vector3q::Zero();
