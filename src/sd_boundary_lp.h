@@ -5,6 +5,7 @@
 #include "sd_boundary.h"
 #include "volume_mesh.h"
 #include "vectorq.h"
+#include <optional>
 #include <utility>
 
 class StarDecompositionBoundaryLp : public StarDecompositionBoundary {
@@ -22,4 +23,6 @@ private:
     Mesh init_component(const OpenMesh::FaceHandle& startF);
     bool add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf);
     void finalize_component(Mesh& mesh);
+
+    std::optional<Vector3q> get_fix_vertex_pos(Mesh& mesh, const Vector3q& vPos, const Vector3q& n); 
 };
