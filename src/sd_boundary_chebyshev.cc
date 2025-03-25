@@ -174,7 +174,7 @@ Mesh StarDecompositionBoundaryChebyshev::init_component(const OpenMesh::FaceHand
  * 2. Face connects to an existing vertex
  *  In this case the face will be added to the mesh
  */
-bool StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
+int StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
     // TODO: Check which edge connects to the component
     // TODO: Use connecting edge to remove an temporary face
     // TODO: Connect open boundaries to the component
@@ -281,7 +281,7 @@ bool StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenM
 
         txMesh.revert();
 
-        return false;
+        return 1;
     } else {
 #ifdef GUI
         _viewer->add_triangle(positions, { 0, 1, 0 });
@@ -290,7 +290,7 @@ bool StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenM
 
 
     _cmpCenter = cmpCenter.second;
-    return true;
+    return 0;
 }
 
 OpenMesh::FaceHandle StarDecompositionBoundaryChebyshev::get_opposite_face(Mesh& mesh, const OpenMesh::FaceHandle& origin) {

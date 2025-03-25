@@ -102,7 +102,7 @@ Mesh StarDecompositionBoundaryLp::init_component(const OpenMesh::FaceHandle& sta
 /**
  * Adds a face to an existing triangle mesh
  */
-bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
+int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
     OpenMesh::VertexHandle newFaceVertex;
     std::vector<OpenMesh::VertexHandle> triangle;
     TxDeleteMesh txMesh(mesh);
@@ -132,7 +132,7 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
 
     // Face would split mesh into two components
     if (singleExistingEdge.is_valid() && !newFaceVertex.is_valid()) {
-        return false;
+        return 1;
     }
 
     Eigen::Vector3d color = { 0, 0.5, 0 };
@@ -210,7 +210,13 @@ bool StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fa
     _viewer->add_triangle(positions, color);
 #endif
 
-    return valid;
+    if (valid) {
+        return 0;
+    } else if (invalidCenter) {
+        return 3;
+    } else {
+        return 2;
+    }
 }
 
 std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& mesh, const Vector3q& cPos, const Vector3q& n) {

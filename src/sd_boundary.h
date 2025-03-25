@@ -36,7 +36,7 @@ protected:
 
     // Algorithm specific methods
     virtual Mesh init_component(const OpenMesh::FaceHandle& startF) = 0;
-    virtual bool add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf) = 0;
+    virtual int add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf) = 0;
     virtual void finalize_component(Mesh& mesh) = 0;
 
 private:

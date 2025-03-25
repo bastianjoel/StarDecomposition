@@ -122,6 +122,7 @@ void StarDecompositionBoundary::start() {
 
         std::vector<OpenMesh::FaceHandle> candidates;
         std::vector<OpenMesh::FaceHandle> candidates2;
+        std::vector<OpenMesh::FaceHandle> failedRecoverable;
         std::set<OpenMesh::FaceHandle> visited;
         for (auto he : _mesh.fh_range(h)) {
             auto oFace = _mesh.opposite_face_handle(he);
@@ -142,7 +143,13 @@ void StarDecompositionBoundary::start() {
             }
 
             bool alreadyChecked = _mesh.property(_selected, nextH) || visited.find(nextH) != visited.end();
-            if (alreadyChecked || !add_face_to_cmp(_nextComponent, nextH)) {
+            if (alreadyChecked) {
+                visited.insert(nextH);
+                continue;
+            }
+
+            int addStat = add_face_to_cmp(_nextComponent, nextH);
+            if (addStat != 0) {
                 visited.insert(nextH);
                 continue;
             }

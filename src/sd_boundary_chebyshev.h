@@ -13,7 +13,7 @@ public:
 
 private:
     Mesh init_component(const OpenMesh::FaceHandle& startF);
-    bool add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf);
+    int add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf);
     void finalize_component(Mesh& mesh);
 
 private:

@@ -21,7 +21,7 @@ private:
     Vector3q _cmpFixV = Vector3q();
 
     Mesh init_component(const OpenMesh::FaceHandle& startF);
-    bool add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf);
+    int add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf);
     void finalize_component(Mesh& mesh);
 
     std::optional<Vector3q> get_fix_vertex_pos(Mesh& mesh, const Vector3q& vPos, const Vector3q& n); 
