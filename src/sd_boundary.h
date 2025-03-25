@@ -17,6 +17,9 @@ public:
     std::vector<VolumeMesh> components();
 
 protected:
+    // When set to true recoverable faces are rechecked starting from next iteration
+    bool _recheckFailed = false;
+
     // Result of the decomposition
     std::vector<VolumeMesh> _components;
     std::vector<Vector3q> _centers;

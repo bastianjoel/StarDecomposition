@@ -151,9 +151,23 @@ void StarDecompositionBoundary::start() {
             int addStat = add_face_to_cmp(_nextComponent, nextH);
             if (addStat != 0) {
                 visited.insert(nextH);
+                if (addStat <= 2) {
+                    failedRecoverable.push_back(nextH);
+                }
                 continue;
             }
 
+            if (_recheckFailed) {
+                for (auto f : failedRecoverable) {
+                    if (_mesh.property(_selected, f)) {
+                        continue;
+                    }
+
+                    candidates.push_back(f);
+                }
+                failedRecoverable.clear();
+                _recheckFailed = false;
+            }
 #ifdef GUI
             _viewer->queue_update();
 #endif
