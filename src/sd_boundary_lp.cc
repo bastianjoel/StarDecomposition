@@ -135,7 +135,7 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
         return 1;
     }
 
-    Eigen::Vector3d color = { 0, 0.5, 0 };
+    Eigen::Vector3d color = { 1, 0, 0 };
     bool invalidCenter = false;
     mpq_class addedFaces = 1;
     auto addedFacesNormal = _mesh.data(newFace).normal_q();
@@ -153,17 +153,24 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
             if (mesh.opposite_halfedge_handle(fh).is_boundary()) {
                 auto v0 = mesh.to_vertex_handle(fh);
                 auto v1 = mesh.from_vertex_handle(fh);
+                auto n = (mesh.data(v1).point_q() - mesh.data(v0).point_q()).cross(_cmpFixV - mesh.data(v0).point_q());
+                if ((mesh.data(v0).point_q() - _cmpCenter).dot(n) <= 0) {
+                    color = { 0.5, 0, 0 };
+                    valid = false;
+                    break;
+                }
+
                 std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), _cmpFixV };
                 if (_mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] }).is_valid()) {
-                    color = { 0.5, 0, 0 };
+                    color = { 1, 0, 0 };
                     valid = false;
                     break;
                 }
             }
         }
 
-        if (valid && !is_valid_component(mesh, _cmpFixV)) {
-            valid = false;
+        if (valid) {
+            color = { 0, 1, 0 };
         }
     } else {
         valid = false;
@@ -173,20 +180,21 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
         auto cmpCenter = has_valid_center(mesh, meshNormal);
         if (cmpCenter.first == INVALID) {
             invalidCenter = true;
+            color = { 0, 0, 1 };
         } else {
             auto p = get_fix_vertex_pos(mesh, cmpCenter.second, meshNormal);
             if (p.has_value()) {
                 valid = true;
-                _cmpCenter = cmpCenter.second;
+                // TODO: Verbosely set in is_valid_component
+                // _cmpCenter = cmpCenter.second;
                 _cmpFixV = p.value();
+                _recheckFailed = true;
                 color = { 0, 1, 1 };
 #ifdef GUI
                 // _viewer->clear_extras();
                 _viewer->add_sphere(_cmpCenter.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.001, { 0, 1, 0 });
                 _viewer->add_sphere(_cmpFixV.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.001, { 0, 1, 1 });
 #endif
-            } else {
-                color = { 1, 0, 0 };
             }
         }
     }
@@ -241,7 +249,7 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
                 }
             }
 
-            if (valid && is_valid_component(mesh, p)) {
+            if (valid && is_valid_component(mesh, p, cPos)) {
                 return p;
             }
         }
@@ -269,15 +277,13 @@ std::pair<StarCenterResult, Vector3q> StarDecompositionBoundaryLp::has_valid_cen
     return std::make_pair(result.first, newCenter);
 }
 
-bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, const Vector3q& fixV) {
+bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, const Vector3q& fixV, const Vector3q& center) {
     std::vector<Eigen::Vector3d> positions;
     std::vector<Eigen::Vector3d> normals;
     for (auto face : mesh.faces()) {
         if (face.is_valid() && !face.deleted()) {
             positions.push_back(mesh.point(mesh.to_vertex_handle(mesh.halfedge_handle(face))));
             normals.push_back(mesh.normal(face).normalized());
-        } else {
-            std::cout << "Invalid face" << std::endl;
         }
     }
 
@@ -289,12 +295,27 @@ bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, const Vector3q&
         normals.push_back((-n).normalized());
     }
 
-    auto center = kernel_chebyshev_center(positions, normals);
+    Eigen::Vector3d centerD = center.unaryExpr([](mpq_class x) { return x.get_d(); });
+    bool valid = true;
     for (int i = 0; i < positions.size(); i++) {
-        if ((positions[i] - center).dot(normals[i]) <= 0) {
+        if ((positions[i] - centerD).dot(normals[i]) <= 0) {
+            valid = false;
+            break;
+        }
+    }
+
+    if (valid) {
+        _cmpCenter = center;
+        return true;
+    }
+
+    auto newCenter = kernel_chebyshev_center(positions, normals);
+    for (int i = 0; i < positions.size(); i++) {
+        if ((positions[i] - newCenter).dot(normals[i]) <= 0) {
             return false;
         }
     }
 
+    _cmpCenter = newCenter.cast<mpq_class>();
     return true;
 }
