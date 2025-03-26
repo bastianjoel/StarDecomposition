@@ -237,6 +237,7 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
         for (int i = 0; i < 4; i++) {
             bool valid = true;
             p = cPos - normal * (t / pow(2, i));
+            p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
 
             for (auto h : boundary) {
                 auto v0 = mesh.to_vertex_handle(h);
