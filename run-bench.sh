@@ -12,7 +12,7 @@ SD_BINARY="./build/sd"
 declare -a ALGORITHMS=("tet")
 
 # Collect the files
-FILES=$(find $TESTDATA_DIR -size $MAX_SIZE -name "${FILENAME}.*" \( -iname "*.vtk" -or -iname "*.stl" \))
+FILES=$(find $TESTDATA_DIR -size $MAX_SIZE -name "${FILENAME}.*" \( -iname "*.vtk" -or -iname "*.stl" \) -printf '%s\t%p\n' | sort -n | cut -f2-)
 
 rm -rf .output || true
 mkdir .output
