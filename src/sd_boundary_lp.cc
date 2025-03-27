@@ -1,6 +1,5 @@
 #include "sd_boundary_lp.h"
 #include "OpenMesh/Core/Mesh/Handles.hh"
-#include "assertion.h"
 #include "lp.h"
 #include "vectorq.h"
 #include <Eigen/src/Core/Matrix.h>
@@ -232,6 +231,9 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
     auto normal = n;
     auto center = cPos;
     auto opposite = _mesh.ray_intersects(cPos, -normal, t);
+    if (!opposite.is_valid()) {
+        return std::nullopt;
+    }
     if ((_mesh.data(*_mesh.fv_begin(opposite)).point_q() - _cmpCenter).dot(_mesh.data(opposite).normal_q()) > 0) {
         Vector3q p;
         auto boundary = mesh.boundary_halfedges();
