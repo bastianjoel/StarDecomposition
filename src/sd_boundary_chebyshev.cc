@@ -32,15 +32,10 @@ void StarDecompositionBoundaryChebyshev::finalize_component(Mesh& cmpMesh) {
         }
     }
 
-    double maxArea = -1;
     auto fixVertex = _mesh.add_vertex_q(cmpMesh.data(_cmpFixV.second).point_q());
     for (auto f : _mesh.faces()) {
         if (_mesh.property(_selected, f)) {
             _mesh.delete_face(f, true);
-            double cMaxArea = _mesh.calc_face_area(f);
-            if (cMaxArea > maxArea) {
-                maxArea = cMaxArea;
-            }
         }
     }
 
