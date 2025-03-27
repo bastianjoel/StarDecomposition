@@ -230,6 +230,7 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
 std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& mesh, const Vector3q& cPos, const Vector3q& n) {
     mpq_class t;
     auto normal = n;
+    auto center = cPos;
     auto opposite = _mesh.ray_intersects(cPos, -normal, t);
     if ((_mesh.data(*_mesh.fv_begin(opposite)).point_q() - _cmpCenter).dot(_mesh.data(opposite).normal_q()) > 0) {
         Vector3q p;
@@ -238,6 +239,9 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
             bool valid = true;
             p = cPos - normal * (t / pow(2, i));
             p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
+            if (!is_valid_component(mesh, p, center)) {
+                continue;
+            }
 
             for (auto h : boundary) {
                 auto v0 = mesh.to_vertex_handle(h);
@@ -250,7 +254,8 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
                 }
             }
 
-            if (valid && is_valid_component(mesh, p, cPos)) {
+            if (valid) {
+                _cmpCenter = center.cast<mpq_class>();
                 return p;
             }
         }
@@ -278,7 +283,7 @@ std::pair<StarCenterResult, Vector3q> StarDecompositionBoundaryLp::has_valid_cen
     return std::make_pair(result.first, newCenter);
 }
 
-bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, const Vector3q& fixV, const Vector3q& center) {
+bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, const Vector3q& fixV, Vector3q& center) {
     std::vector<Eigen::Vector3d> positions;
     std::vector<Eigen::Vector3d> normals;
     for (auto face : mesh.faces()) {
@@ -317,6 +322,6 @@ bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, const Vector3q&
         }
     }
 
-    _cmpCenter = newCenter.cast<mpq_class>();
+    center = newCenter.cast<mpq_class>();
     return true;
 }
