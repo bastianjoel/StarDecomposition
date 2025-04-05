@@ -234,29 +234,15 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
     if (!opposite.is_valid()) {
         return std::nullopt;
     }
+
     if ((_mesh.data(*_mesh.fv_begin(opposite)).point_q() - _cmpCenter).dot(_mesh.data(opposite).normal_q()) > 0) {
         Vector3q p;
-        auto boundary = mesh.boundary_halfedges();
         for (int i = 0; i < 4; i++) {
             bool valid = true;
             p = cPos - normal * (t / pow(2, i));
             p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
-            if (!is_valid_component(mesh, p, center)) {
-                continue;
-            }
 
-            for (auto h : boundary) {
-                auto v0 = mesh.to_vertex_handle(h);
-                auto v1 = mesh.from_vertex_handle(h);
-                std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), p };
-                auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
-                if (intersects.is_valid()) {
-                    valid = false;
-                    break;
-                }
-            }
-
-            if (valid) {
+            if (is_valid_fixpoint(mesh, p, center)) {
                 _cmpCenter = center.cast<mpq_class>();
                 return p;
             }
@@ -264,6 +250,25 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
     }
 
     return std::nullopt;
+}
+
+bool StarDecompositionBoundaryLp::is_valid_fixpoint(Mesh& mesh, const Vector3q& fixV, Vector3q& center) {
+    if (!is_valid_component(mesh, fixV, center)) {
+        return false;
+    }
+
+    auto boundary = mesh.boundary_halfedges();
+    for (auto h : boundary) {
+        auto v0 = mesh.to_vertex_handle(h);
+        auto v1 = mesh.from_vertex_handle(h);
+        std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), fixV };
+        auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
+        if (intersects.is_valid()) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 std::pair<StarCenterResult, Vector3q> StarDecompositionBoundaryLp::has_valid_center(Mesh& mesh, Vector3q normal) {
