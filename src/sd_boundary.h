@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesh.h"
+#include "mesh_boundary.h"
 #include "volume_mesh.h"
 #include "vectorq.h"
 
@@ -32,13 +33,14 @@ protected:
     Mesh _nextComponent = Mesh();
     std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
     std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _meshVertexMap;
+    std::vector<MeshBoundary> _boundaries;
 
     // Add components to the result
     void add_component(const Mesh& mesh);
     void fallback(const Mesh& mesh);
 
     // Algorithm specific methods
-    virtual Mesh init_component(const OpenMesh::FaceHandle& startF) = 0;
+    virtual void init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF) = 0;
     virtual int add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf) = 0;
     virtual void finalize_component(Mesh& mesh) = 0;
 

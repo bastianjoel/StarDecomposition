@@ -34,46 +34,7 @@ void StarDecompositionBoundaryLp::finalize_component(Mesh& cmpMesh) {
     _mesh.generate_bvh();
 }
 
-/*
-std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& mesh, const OpenMesh::FaceHandle& hf) {
-    Vector3q vPos = mesh.face_center(hf);
-    Vector3q n = -mesh.data(hf).normal_q();
-
-    auto opposite = _mesh.ray_intersects(vPos, n);
-    if (!opposite.is_valid()) {
-        return std::make_pair(opposite, Vector3q::Zero());
-    }
-
-    n = mesh.data(hf).normal_q();
-    mpq_class r = mesh.intersection_factor(vPos, n, opposite).second / 2;
-    Vector3q p = vPos + r * n;
-
-    bool intersects;
-    do {
-        intersects = false;
-        for (auto fh : mesh.fh_range(hf)) {
-            auto v0 = mesh.to_vertex_handle(fh);
-            auto v1 = mesh.from_vertex_handle(fh);
-            std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), p };
-            if (_mesh.triangle_intersects(t, { v0, v1 }).is_valid()) {
-                intersects = true;
-                r /= 2;
-                p = vPos + r * n;
-                ASSERT(r > 1e-6 || r < -1e-6);
-                break;
-            }
-        }
-    } while (intersects);
-
-    // TODO: Check if there is a way to make this workaround unnecessary
-    p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
-
-    return std::make_pair(opposite, p);
-}
-*/
-
-Mesh StarDecompositionBoundaryLp::init_component(const OpenMesh::FaceHandle& startF) {
-    Mesh mesh;
+void StarDecompositionBoundaryLp::init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF) {
     std::vector<OpenMesh::VertexHandle> newHfVertices;
     for (auto hv : _mesh.fv_range(startF)) {
         auto newVertex = mesh.add_vertex_q(_mesh.data(hv).point_q());
@@ -84,6 +45,7 @@ Mesh StarDecompositionBoundaryLp::init_component(const OpenMesh::FaceHandle& sta
 
     auto face = mesh.add_face(newHfVertices);
     mesh.set_normal_q(face, _mesh.data(startF).normal_q());
+    _boundaries[0].add_boundary_halfedge(face);
 
     _cmpNormal = _mesh.data(startF).normal_q();
     _cmpCenter = _mesh.face_center(startF);
@@ -95,7 +57,6 @@ Mesh StarDecompositionBoundaryLp::init_component(const OpenMesh::FaceHandle& sta
     }
 
     _mesh.property(_selected, startF) = true;
-    return mesh;
 }
 
 /**
@@ -141,7 +102,7 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
     OpenMesh::FaceHandle face = txMesh.add_face(triangle);
     mesh.set_normal_q(face, _mesh.data(newFace).normal_q());
     addedFacesNormal /= addedFaces;
-
+    _boundaries[0].add_boundary_halfedge(face);
     mpq_class f1 = (mesh.n_faces() - addedFaces) / mesh.n_faces();
     mpq_class f2 = addedFaces / mesh.n_faces();
     Vector3q meshNormal = ((_cmpNormal * f1) + (addedFacesNormal * f2));// .unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
@@ -189,11 +150,6 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
                 _cmpFixV = p.value();
                 _recheckFailed = true;
                 color = { 0, 1, 1 };
-#ifdef GUI
-                // _viewer->clear_extras();
-                _viewer->add_sphere(_cmpCenter.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.001, { 0, 1, 0 });
-                _viewer->add_sphere(_cmpFixV.unaryExpr([](mpq_class x) { return x.get_d(); }), 0.001, { 0, 1, 1 });
-#endif
             }
         }
     }
@@ -204,6 +160,7 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
             _cmpVertexMap.erase(newFaceVertex);
         }
 
+        _boundaries[0].remove_boundary_halfedge(face);
         txMesh.revert();
     } else {
         _cmpNormal = meshNormal;
@@ -300,12 +257,11 @@ bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, const Vector3q&
         }
     }
 
-    for (auto h : mesh.boundary_halfedges()) {
-        positions.push_back(fixV.unaryExpr([](mpq_class x) { return x.get_d(); }));
-        Vector3q v0 = mesh.data(mesh.to_vertex_handle(h)).point_q();
-        Vector3q v1 = mesh.data(mesh.from_vertex_handle(h)).point_q();
-        Eigen::Vector3d n = (v1 - v0).cross(fixV - v0).unaryExpr([](mpq_class x) { return x.get_d(); });
-        normals.push_back((-n).normalized());
+    for (auto b : _boundaries) {
+        for (auto n : b.get_normals(fixV)) {
+            positions.push_back(fixV.unaryExpr([](mpq_class x) { return x.get_d(); }));
+            normals.push_back(n);
+        }
     }
 
     Eigen::Vector3d centerD = center.unaryExpr([](mpq_class x) { return x.get_d(); });

@@ -20,7 +20,7 @@ private:
     Vector3q _cmpCenter = Vector3q();
     Vector3q _cmpFixV = Vector3q();
 
-    Mesh init_component(const OpenMesh::FaceHandle& startF);
+    void init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF);
     int add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& hf);
     void finalize_component(Mesh& mesh);
 

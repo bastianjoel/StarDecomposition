@@ -113,8 +113,7 @@ bool StarDecompositionBoundaryChebyshev::move_vertex_to(Mesh& mesh, OpenMesh::Ve
     return true;
 }
 
-Mesh StarDecompositionBoundaryChebyshev::init_component(const OpenMesh::FaceHandle& startF) {
-    Mesh mesh;
+void StarDecompositionBoundaryChebyshev::init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF) {
     std::vector<OpenMesh::VertexHandle> newHfVertices;
     for (auto hv : _mesh.fv_range(startF)) {
         auto hvQ = _mesh.data(hv).point_q();
@@ -138,7 +137,7 @@ Mesh StarDecompositionBoundaryChebyshev::init_component(const OpenMesh::FaceHand
             mesh.update_normal_q(of);
         }
     } else {
-        std::cout << "Opposite face not found" << std::endl;
+        std::cerr << "Opposite face not found" << std::endl;
         {
             if (!OpenMesh::IO::write_mesh(_mesh, "debug/_error.obj")) {
                 std::cerr << "write error\n";
@@ -157,7 +156,6 @@ Mesh StarDecompositionBoundaryChebyshev::init_component(const OpenMesh::FaceHand
 #endif
 
     _mesh.property(_selected, startF) = true;
-    return mesh;
 }
 
 /**

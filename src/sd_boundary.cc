@@ -118,7 +118,10 @@ void StarDecompositionBoundary::start() {
         OpenMesh::FaceHandle h = *(_mesh.faces_begin() + (rand() % _mesh.n_faces()));
         _cmpVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
         _meshVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
-        _nextComponent = init_component(h);
+        _boundaries = std::vector<MeshBoundary>();
+        _nextComponent = Mesh();
+        _boundaries.push_back(MeshBoundary(_nextComponent));
+        init_component(_nextComponent, h);
 
         std::vector<OpenMesh::FaceHandle> candidates;
         std::vector<OpenMesh::FaceHandle> candidates2;
