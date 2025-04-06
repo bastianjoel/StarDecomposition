@@ -53,7 +53,9 @@ Vector3q Mesh::update_normal_q(OpenMesh::FaceHandle fh) {
 
 void Mesh::set_normal_q(OpenMesh::FaceHandle fh, const Vector3q& n) {
     data(fh).set_normal_q(n);
-    set_normal(fh, n.unaryExpr([](mpq_class x) { return x.get_d(); }));
+    auto nD = n.unaryExpr([](mpq_class x) { return x.get_d(); });
+    data(fh).set_normal_normalized(nD.normalized());
+    set_normal(fh, nD);
 }
 
 void Mesh::move(OpenMesh::VertexHandle vh, const Vector3q& p) {

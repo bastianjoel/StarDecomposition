@@ -31,6 +31,7 @@ protected:
 
     // Current processing component
     Mesh _nextComponent = Mesh();
+    int _nextComponentFaces = 0;
     std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
     std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _meshVertexMap;
     std::vector<MeshBoundary> _boundaries;

@@ -39,9 +39,13 @@ struct MyTraits : public OpenMesh::DefaultTraits
   FaceTraits {
   private:
       Vector3q _normal_q;
+      Eigen::Vector3d _normal_normalized;
   public:
       const Vector3q& normal_q() const { return _normal_q; }
       void set_normal_q(const Vector3q& q) { _normal_q = q; }
+
+      const Eigen::Vector3d& normal_normalized() const { return _normal_normalized; }
+      void set_normal_normalized(const Eigen::Vector3d& n) { _normal_normalized = n; }
   };
 };
 
