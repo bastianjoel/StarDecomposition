@@ -4,6 +4,7 @@
 
 StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _mesh(m) {
     _mesh.add_property(_selected);
+    _mesh.add_property(_origBound);
     for (auto v : _mesh.vertices()) {
         _mesh.data(v).set_point_q(_mesh.point(v).cast<mpq_class>());
     }
@@ -11,6 +12,7 @@ StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _mesh(m) {
     for (auto f : _mesh.faces()) {
         _mesh.update_normal_q(f);
         _mesh.property(_selected, f) = false;
+        _mesh.property(_origBound, f) = true;
     }
 
     _mesh.generate_bvh();
@@ -25,6 +27,7 @@ StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _mesh(m) {
 
 StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) {
     _mesh.add_property(_selected);
+    _mesh.add_property(_origBound);
 
     auto Q = mesh.property<Vertex, Vector3q>("Q");
     std::map<Vertex, OpenMesh::VertexHandle> vMap;
@@ -40,6 +43,7 @@ StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) {
         auto face = _mesh.add_face(newHfVertices);
         _mesh.update_normal_q(face);
         _mesh.property(_selected, face) = false;
+        _mesh.property(_origBound, face) = true;
     }
 
     _mesh.delete_isolated_vertices();
@@ -116,6 +120,16 @@ void StarDecompositionBoundary::start() {
 
         // Add random face
         OpenMesh::FaceHandle h = *(_mesh.faces_begin() + (rand() % _mesh.n_faces()));
+        while (!_mesh.property(_origBound, h) && startOffset < _mesh.n_faces()) {
+            h = *(_mesh.faces_begin() + (startOffset));
+            startOffset++;
+        }
+
+        if (startOffset == _mesh.n_faces()) {
+            fallback(_mesh);
+            break;
+        }
+
         _cmpVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
         _meshVertexMap = std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle>();
         _boundaries = std::vector<MeshBoundary>();
@@ -145,8 +159,9 @@ void StarDecompositionBoundary::start() {
                 nextH = *nextPtr;
                 candidates.erase(nextPtr);
             } else {
-                nextH = candidates2.front();
-                candidates2.erase(candidates2.begin());
+                auto nextPtr = candidates2.begin() + (rand() % candidates2.size());
+                nextH = *nextPtr;
+                candidates2.erase(nextPtr);
             }
 
             bool alreadyChecked = _mesh.property(_selected, nextH) || visited.find(nextH) != visited.end();
@@ -215,7 +230,7 @@ void StarDecompositionBoundary::start() {
         }
         int amount = (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
         // if (amount < -10 || (resets > 3 && amount <= 0.7 * bestSinceReset && amount < 0)) {
-        if (amount < -50) {
+        if (amount < -50 || (resets > 8 && amount <= 0.7 * bestSinceReset && amount < -10)) {
             std::cout << "Cmp " << _components.size() << " amount faces: " << _nextComponent.faces().to_vector().size() << " full mesh size change: " << (-numCmpFaces + (numCmpFacesTotal - numCmpFaces));
             std::cout << " resets: " << resets << " full mesh size: " << _mesh.n_faces() << std::endl;
             finalize_component(_nextComponent);

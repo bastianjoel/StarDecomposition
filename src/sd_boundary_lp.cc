@@ -25,6 +25,7 @@ void StarDecompositionBoundaryLp::finalize_component(Mesh& cmpMesh) {
         auto f = _mesh.add_face(_mesh.from_vertex_handle(h), _mesh.to_vertex_handle(h), fixVertex);
         _mesh.update_normal_q(f);
         _mesh.property(_selected, f) = false;
+        _mesh.property(_origBound, f) = false;
     }
 
     cmpMesh.garbage_collection();

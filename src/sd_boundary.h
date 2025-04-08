@@ -28,6 +28,7 @@ protected:
     // Mesh to decompose
     Mesh _mesh = Mesh();
     OpenMesh::FPropHandleT<int> _selected;
+    OpenMesh::FPropHandleT<bool> _origBound;
 
     // Current processing component
     Mesh _nextComponent = Mesh();

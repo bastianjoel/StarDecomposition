@@ -2,7 +2,6 @@
 #include "mesh.h"
 #include "vectorq.h"
 #include <map>
-#include <set>
 #include <vector>
 
 class MeshBoundary {
@@ -10,7 +9,6 @@ public:
   MeshBoundary(Mesh& mesh) : _mesh(mesh) {
     for (auto h : _mesh.boundary_halfedges()) {
       auto ohe = _mesh.opposite_halfedge_handle(h);
-      _boundaryHalfedges.insert(ohe);
       _normals[ohe] = get_normal(ohe);
     }
   }
@@ -20,12 +18,10 @@ public:
     int added = 0;
     for (auto he : _mesh.fh_range(f)) {
       auto ohe = _mesh.opposite_halfedge_handle(he);
-      if (_boundaryHalfedges.find(he) == _boundaryHalfedges.end()) {
-        _boundaryHalfedges.insert(ohe);
+      if (_normals.find(he) == _normals.end()) {
         _normals[ohe] = get_normal(ohe);
         added++;
       } else {
-        _boundaryHalfedges.erase(he);
         _normals.erase(he);
       }
     }
@@ -37,11 +33,9 @@ public:
     int removed = 0;
     for (auto he : _mesh.fh_range(f)) {
       auto ohe = _mesh.opposite_halfedge_handle(he);
-      if (_boundaryHalfedges.find(ohe) == _boundaryHalfedges.end()) {
-        _boundaryHalfedges.insert(he);
+      if (_normals.find(ohe) == _normals.end()) {
         _normals[he] = get_normal(he);
       } else {
-        _boundaryHalfedges.erase(ohe);
         _normals.erase(ohe);
         removed++;
       }
@@ -49,19 +43,19 @@ public:
   }
 
   const std::vector<Eigen::Vector3d> get_normals() {
-    std::vector<Eigen::Vector3d> normals(_boundaryHalfedges.size());
+    std::vector<Eigen::Vector3d> normals(_normals.size());
     int i = 0;
-    for (auto h : _boundaryHalfedges) {
-      normals[i++] = _normals[h];
+    for (auto h : _normals) {
+      normals[i++] = _normals[h.first];
     }
     return normals;
   }
 
   const std::vector<Eigen::Vector3d> get_normals(const Vector3q& fix) {
-    std::vector<Eigen::Vector3d> normals(_boundaryHalfedges.size());
+    std::vector<Eigen::Vector3d> normals(_normals.size());
     int i = 0;
-    for (auto h : _boundaryHalfedges) {
-      normals[i++] = get_normal(h, fix);
+    for (auto h : _normals) {
+      normals[i++] = get_normal(h.first, fix);
     }
 
     return normals;
@@ -74,8 +68,8 @@ public:
   void set_fix_vertex(const Vector3q& fix_vertex) {
     _fix_vertex = fix_vertex;
 
-    for (auto h : _boundaryHalfedges) {
-        _normals[h] = get_normal(h);
+    for (auto h : _normals) {
+        _normals[h.first] = get_normal(h.first);
     }
   }
 
@@ -84,7 +78,6 @@ private:
   Vector3q _fix_vertex;
 
   std::map<OpenMesh::HalfedgeHandle, Eigen::Vector3d> _normals;
-  std::set<OpenMesh::HalfedgeHandle> _boundaryHalfedges; 
 
   Eigen::Vector3d get_normal(const OpenMesh::HalfedgeHandle& h) {
     return get_normal(h, _fix_vertex);
