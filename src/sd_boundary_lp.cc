@@ -70,7 +70,6 @@ void StarDecompositionBoundaryLp::init_component(Mesh& mesh, const OpenMesh::Fac
 int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
     OpenMesh::VertexHandle newFaceVertex;
     std::vector<OpenMesh::VertexHandle> triangle;
-    TxDeleteMesh txMesh(mesh);
 
     OpenMesh::HalfedgeHandle singleExistingEdge;
     for (auto fh : _mesh.fh_range(newFace)) {
@@ -100,48 +99,20 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
         return 1;
     }
 
-    Eigen::Vector3d color = { 1, 0, 0 };
-    bool invalidCenter = false;
-    mpq_class addedFaces = 1;
+    auto boundary = &_boundaries[0];
+    bool valid = is_valid_with(*boundary, newFace, _cmpCenter);
+    Eigen::Vector3d color = { (double)!valid, (double)valid, 0 };
     auto addedFacesNormal = _mesh.data(newFace).normal_q();
+
+    TxDeleteMesh txMesh(mesh);
     OpenMesh::FaceHandle face = txMesh.add_face(triangle);
     mesh.set_normal_q(face, _mesh.data(newFace).normal_q());
-    addedFacesNormal /= addedFaces;
-    auto boundary = &_boundaries[0];
     boundary->add_boundary_halfedge(face);
-    mpq_class f1 = _nextComponentFaces / (_nextComponentFaces + addedFaces);
-    mpq_class f2 = addedFaces / (_nextComponentFaces + addedFaces);
+    mpq_class f1 = _nextComponentFaces / (_nextComponentFaces + 1.0f);
+    mpq_class f2 = 1.0f / (_nextComponentFaces + 1.0f);
     Vector3q meshNormal = ((_cmpNormal * f1) + (addedFacesNormal * f2));// .unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
 
-    bool valid = true;
-    if ((_mesh.data(*_mesh.fv_begin(newFace)).point_q() - _cmpCenter).dot(_mesh.data(newFace).normal_q()) > 0) {
-        for (auto fh : mesh.fh_range(face)) {
-            if (mesh.opposite_halfedge_handle(fh).is_boundary()) {
-                auto v0 = mesh.to_vertex_handle(fh);
-                auto v1 = mesh.from_vertex_handle(fh);
-                auto n = (mesh.data(v1).point_q() - mesh.data(v0).point_q()).cross(boundary->get_fix_vertex() - mesh.data(v0).point_q());
-                if ((mesh.data(v0).point_q() - _cmpCenter).dot(n) <= 0) {
-                    color = { 0.5, 0, 0 };
-                    valid = false;
-                    break;
-                }
-
-                std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), boundary->get_fix_vertex() };
-                if (_mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] }).is_valid()) {
-                    color = { 1, 0, 0 };
-                    valid = false;
-                    break;
-                }
-            }
-        }
-
-        if (valid) {
-            color = { 0, 1, 0 };
-        }
-    } else {
-        valid = false;
-    }
-
+    bool invalidCenter = false;
     if (!valid) {
         auto meshNormalD = meshNormal.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
         auto cmpCenter = has_valid_center(mesh, meshNormalD);
@@ -223,11 +194,7 @@ bool StarDecompositionBoundaryLp::is_valid_fixpoint(Mesh& mesh, const Vector3q& 
 
     for (auto b : _boundaries) {
         for (auto h : b.get_halfedges()) {
-            auto v0 = mesh.to_vertex_handle(h);
-            auto v1 = mesh.from_vertex_handle(h);
-            std::vector<Vector3q> t = { mesh.data(v0).point_q(), mesh.data(v1).point_q(), fixV };
-            auto intersects = _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] });
-            if (intersects.is_valid()) {
+            if (triangle_intersects(h, fixV)) {
                 return false;
             }
         }

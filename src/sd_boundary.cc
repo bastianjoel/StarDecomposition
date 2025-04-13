@@ -99,6 +99,40 @@ void StarDecompositionBoundary::add_component(const Mesh& mesh) {
     }
 }
 
+bool StarDecompositionBoundary::triangle_intersects(const OpenMesh::HalfedgeHandle& h, const Vector3q& p) {
+    auto v0 = _nextComponent.to_vertex_handle(h);
+    auto v1 = _nextComponent.from_vertex_handle(h);
+
+    std::vector<Vector3q> t = { _nextComponent.data(v0).point_q(), _nextComponent.data(v1).point_q(), p };
+    return _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] }).is_valid();
+}
+
+bool StarDecompositionBoundary::is_valid_with(const MeshBoundary& b, const OpenMesh::FaceHandle& f, const Vector3q& c) {
+    if ((_mesh.data(*_mesh.fv_begin(f)).point_q() - c).dot(_mesh.data(f).normal_q()) <= 0) {
+        return false;
+    }
+
+    for (auto fh : _mesh.fh_range(f)) {
+        auto hv = _mesh.from_vertex_handle(fh);
+        auto hvTo = _mesh.to_vertex_handle(fh);
+        if (!_nextComponent.find_halfedge(_cmpVertexMap[hv], _cmpVertexMap[hvTo]).is_valid()) {
+            auto v0 = _mesh.data(hvTo).point_q();
+            auto v1 = _mesh.data(hv).point_q();
+            auto n = (v1 - v0).cross(b.get_fix_vertex() - v0);
+            if ((v0 - c).dot(n) <= 0) {
+                return false;
+            }
+
+            std::vector<Vector3q> t = { v0, v1, b.get_fix_vertex() };
+            if (_mesh.triangle_intersects(t, { hv, hvTo }).is_valid()) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 void StarDecompositionBoundary::fallback(const Mesh& mesh) {
     auto components = sd(_mesh, "tet");
     for (auto m : components) {

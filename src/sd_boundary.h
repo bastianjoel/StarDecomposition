@@ -37,6 +37,10 @@ protected:
     std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _meshVertexMap;
     std::vector<MeshBoundary> _boundaries;
 
+    // Helpers
+    bool triangle_intersects(const OpenMesh::HalfedgeHandle& h, const Vector3q& p);
+    bool is_valid_with(const MeshBoundary& b, const OpenMesh::FaceHandle& f, const Vector3q& c);
+
     // Add components to the result
     void add_component(const Mesh& mesh);
     void fallback(const Mesh& mesh);
