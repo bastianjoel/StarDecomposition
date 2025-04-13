@@ -42,6 +42,15 @@ public:
     }
   }
 
+  const std::vector<OpenMesh::HalfedgeHandle> get_halfedges() {
+    std::vector<OpenMesh::HalfedgeHandle> halfedges(_normals.size());
+    int i = 0;
+    for (auto h : _normals) {
+      halfedges[i++] = h.first;
+    }
+    return halfedges;
+  }
+
   const std::vector<Eigen::Vector3d> get_normals() {
     std::vector<Eigen::Vector3d> normals(_normals.size());
     int i = 0;
