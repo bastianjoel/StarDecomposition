@@ -107,7 +107,6 @@ void StarDecompositionBoundary::fallback(const Mesh& mesh) {
 }
 
 void StarDecompositionBoundary::start() {
-    srand(0);
     int startOffset = 0;
     int resets = 0;
     int bestSinceReset = 0;

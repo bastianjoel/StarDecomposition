@@ -2,6 +2,7 @@
 #include "mesh.h"
 #include "retet.h"
 #include "sd.h"
+#include <ctime>
 
 #ifdef GUI
 #include "viewer.h"
@@ -18,6 +19,7 @@ int main(int argc, char** argv) {
     std::string N_filename = "";
     std::string out_dir = "";
     std::string algorithm = "";
+    int seed = time({});
     bool benchMode = false;
     bool feasibilityCheck = false;
     for (int i = 1; i < argc; i++) {
@@ -34,6 +36,15 @@ int main(int argc, char** argv) {
                     break;
                 case 'b':
                     benchMode = true;
+                    break;
+                case 's':
+                    i++;
+                    if (argc <= i) {
+                        std::cout << "Seed missing" << std::endl;
+                        print_usage(arg0, path);
+                        return 0;
+                    }
+                    seed = std::stoi(argv[i]);
                     break;
                 case 'o':
                     i++;
@@ -66,6 +77,7 @@ int main(int argc, char** argv) {
         N_filename = path + SEP + "meshes" + SEP + "thumb.vtk";
     }
 
+    srand(seed);
     std::chrono::steady_clock::time_point begin, end;
     if (benchMode) {
         std::cout.setstate(std::ios_base::failbit);
