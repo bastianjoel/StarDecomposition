@@ -133,6 +133,31 @@ bool StarDecompositionBoundary::is_valid_with(const MeshBoundary& b, const OpenM
     return true;
 }
 
+std::optional<Vector3q> StarDecompositionBoundary::is_next_component_valid() {
+    std::vector<Eigen::Vector3d> positions;
+    std::vector<Eigen::Vector3d> normals;
+    for (auto face : _nextComponent.faces()) {
+        positions.push_back(_nextComponent.point(_nextComponent.to_vertex_handle(_nextComponent.halfedge_handle(face))));
+        normals.push_back(_nextComponent.data(face).normal_normalized());
+    }
+
+    for (auto b : _boundaries) {
+        for (auto n : b.get_normals()) {
+            positions.push_back(b.get_fix_vertex().unaryExpr([](mpq_class x) { return x.get_d(); }));
+            normals.push_back(n);
+        }
+    }
+
+    auto newCenter = kernel_chebyshev_center(positions, normals);
+    for (int i = 0; i < positions.size(); i++) {
+        if ((positions[i] - newCenter).dot(normals[i]) <= 0) {
+            return std::nullopt;
+        }
+    }
+
+    return newCenter.cast<mpq_class>();
+}
+
 void StarDecompositionBoundary::fallback(const Mesh& mesh) {
     auto components = sd(_mesh, "tet");
     for (auto m : components) {

@@ -2,6 +2,7 @@
 #include "mesh.h"
 #include "vectorq.h"
 #include <map>
+#include <utility>
 #include <vector>
 
 class MeshBoundary {
@@ -80,6 +81,15 @@ public:
     for (auto h : _normals) {
         _normals[h.first] = get_normal(h.first);
     }
+  }
+
+  const Vector3q get_fix_vertex_normal() {
+    Vector3q n = Vector3q::Zero();
+    for (auto h : _normals) {
+      n += _normals[h.first].cast<mpq_class>() / static_cast<mpq_class>(_normals.size());
+    }
+
+    return n;
   }
 
 private:

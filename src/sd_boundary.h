@@ -4,6 +4,7 @@
 #include "mesh_boundary.h"
 #include "volume_mesh.h"
 #include "vectorq.h"
+#include <optional>
 
 #ifdef GUI
 #include "viewer.h"
@@ -36,6 +37,7 @@ protected:
     std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _cmpVertexMap;
     std::map<OpenMesh::VertexHandle, OpenMesh::VertexHandle> _meshVertexMap;
     std::vector<MeshBoundary> _boundaries;
+    std::optional<Vector3q> is_next_component_valid();
 
     // Helpers
     bool triangle_intersects(const OpenMesh::HalfedgeHandle& h, const Vector3q& p);
