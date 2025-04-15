@@ -57,63 +57,6 @@ void StarDecompositionBoundaryChebyshev::finalize_component(Mesh& cmpMesh) {
     _mesh.generate_bvh();
 }
 
-bool StarDecompositionBoundaryChebyshev::move_fix_vertex(Mesh& mesh, bool shrink) {
-    Vector3q vPos = mesh.data(_cmpFixV.second).point_q();
-    auto nD = mesh.calc_normal(_cmpFixV.second) * (shrink ? 1 : -1);
-    Vector3q n = nD.cast<mpq_class>();
-
-    auto opposite = get_opposite_face(vPos, -n);
-    if (!opposite.is_valid()) {
-        std::cout << "Opposite face not found" << std::endl;
-        return false;
-    }
-
-    auto r = _mesh.intersection_factor(vPos, n, opposite);
-    if (!r.first) {
-        return false;
-    }
-
-    r.second /= 4;
-
-    for (int i = 1; i < 4; i++) {
-        Vector3q p =  vPos + r.second * i * n;
-        p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
-
-        if (move_vertex_to(mesh, _cmpFixV.second, p)) {
-            _cmpFixV.first = opposite;
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool StarDecompositionBoundaryChebyshev::move_vertex_to(Mesh& mesh, OpenMesh::VertexHandle& moveV, const Vector3q& p) {
-    for (auto vf : mesh.vf_range(moveV)) {
-        std::vector<OpenMesh::VertexHandle> vertices;
-        for (auto v : mesh.fv_range(vf)) {
-            if (moveV != v) {
-                vertices.push_back(v);
-            }
-        }
-        std::vector<Vector3q> t = { mesh.data(vertices[0]).point_q(), mesh.data(vertices[1]).point_q(), p };
-        if (_mesh.triangle_intersects(t, { _meshVertexMap[vertices[0]], _meshVertexMap[vertices[1]] }).is_valid()) {
-            return false;
-        }
-    }
-
-    Vector3q prevPos = mesh.data(moveV).point_q();
-    mesh.move(_cmpFixV.second, p);
-    auto cmpCenter = mesh.star_center();
-    if (!cmpCenter.first) {
-        mesh.move(_cmpFixV.second, prevPos);
-        return false;
-    }
-
-    _cmpCenter = cmpCenter.second;
-    return true;
-}
-
 void StarDecompositionBoundaryChebyshev::init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF) {
     std::vector<OpenMesh::VertexHandle> newHfVertices;
     for (auto hv : _mesh.fv_range(startF)) {
@@ -129,8 +72,7 @@ void StarDecompositionBoundaryChebyshev::init_component(Mesh& mesh, const OpenMe
 
     auto opposite = get_fix_vertex_pos(_mesh, startF);
     if (opposite.first.is_valid()) {
-        auto point = opposite.second;
-        auto newVertex = mesh.add_vertex_q(point);
+        auto newVertex = mesh.add_vertex_q(opposite.second);
         _cmpFixV = std::make_pair(opposite.first, newVertex);
         for (auto he : mesh.fh_range(face)) {
             auto ohe = mesh.opposite_halfedge_handle(he);
@@ -285,6 +227,63 @@ int StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMe
 
     _cmpCenter = cmpCenter.second;
     return 0;
+}
+
+bool StarDecompositionBoundaryChebyshev::move_fix_vertex(Mesh& mesh, bool shrink) {
+    Vector3q vPos = mesh.data(_cmpFixV.second).point_q();
+    auto nD = mesh.calc_normal(_cmpFixV.second) * (shrink ? 1 : -1);
+    Vector3q n = nD.cast<mpq_class>();
+
+    auto opposite = get_opposite_face(vPos, -n);
+    if (!opposite.is_valid()) {
+        std::cout << "Opposite face not found" << std::endl;
+        return false;
+    }
+
+    auto r = _mesh.intersection_factor(vPos, n, opposite);
+    if (!r.first) {
+        return false;
+    }
+
+    r.second /= 4;
+
+    for (int i = 1; i < 4; i++) {
+        Vector3q p =  vPos + r.second * i * n;
+        p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
+
+        if (move_vertex_to(mesh, _cmpFixV.second, p)) {
+            _cmpFixV.first = opposite;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool StarDecompositionBoundaryChebyshev::move_vertex_to(Mesh& mesh, OpenMesh::VertexHandle& moveV, const Vector3q& p) {
+    for (auto vf : mesh.vf_range(moveV)) {
+        std::vector<OpenMesh::VertexHandle> vertices;
+        for (auto v : mesh.fv_range(vf)) {
+            if (moveV != v) {
+                vertices.push_back(v);
+            }
+        }
+        std::vector<Vector3q> t = { mesh.data(vertices[0]).point_q(), mesh.data(vertices[1]).point_q(), p };
+        if (_mesh.triangle_intersects(t, { _meshVertexMap[vertices[0]], _meshVertexMap[vertices[1]] }).is_valid()) {
+            return false;
+        }
+    }
+
+    Vector3q prevPos = mesh.data(moveV).point_q();
+    mesh.move(_cmpFixV.second, p);
+    auto cmpCenter = mesh.star_center();
+    if (!cmpCenter.first) {
+        mesh.move(_cmpFixV.second, prevPos);
+        return false;
+    }
+
+    _cmpCenter = cmpCenter.second;
+    return true;
 }
 
 OpenMesh::FaceHandle StarDecompositionBoundaryChebyshev::get_opposite_face(Mesh& mesh, const OpenMesh::FaceHandle& origin) {
