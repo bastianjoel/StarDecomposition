@@ -123,10 +123,10 @@ int main(int argc, char** argv) {
     if (benchMode) {
         end = std::chrono::steady_clock::now();
         std::cout.clear();
-        // filename,algorithm,time,result_feasible,result_components,result_cell_counts,result_boundary_face_counts
+        // filename,algorithm,time,result_feasible,result_components,seed,result_cell_counts,result_boundary_face_counts
         std::cout << N_filename << "," << algorithm << ",";
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << ",";
-        std::cout << (feasible == -1) << "," << components.size() << ",";
+        std::cout << (feasible == -1) << "," << components.size() << "," << seed << ",";
         for (int i = 0; i < components.size(); i++) {
             std::cout << components[i].n_cells();
             if (i < components.size() - 1) {

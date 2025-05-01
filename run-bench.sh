@@ -2,14 +2,15 @@
 
 trap "echo Exited!; exit;" SIGINT SIGTERM
 
-THREADS=7
+THREADS=$(nproc)
 MAX_RUNTIME=30m
 MAX_SIZE="-5000k"
-FILENAME="rest"
-TESTDATA_DIR="../Testdata/Locally-Injective-Mapping/3D_Parameterization/"
+FILENAME=$2
+TESTDATA_DIR=$1
 SD_BINARY="./build/sd"
-# declare -a ALGORITHMS=("tet" "boundary" "boundary-lp")
-declare -a ALGORITHMS=("tet")
+NUM_REPEATS=10
+declare -a ALGORITHMS=("boundary" "boundary-lp")
+# declare -a ALGORITHMS=("tet")
 
 # Collect the files
 FILES=$(find $TESTDATA_DIR -size $MAX_SIZE -name "${FILENAME}.*" \( -iname "*.vtk" -or -iname "*.stl" \) -printf '%s\t%p\n' | sort -n | cut -f2-)
@@ -23,14 +24,17 @@ for FILE in $FILES
 do
   echo "Testing on $FILE"
   ROW="$FILE"
-  for ALGORITHM in "${ALGORITHMS[@]}"
+  for i in $( eval echo {0..$NUM_REPEATS} )
   do
-    while [ $(jobs | wc -l) -ge ${THREADS} ] ; do sleep 1 ; done
-    (timeout -f $MAX_RUNTIME $SD_BINARY $FILE -a $ALGORITHM -b || echo "$FILE,$ALGORITHM,TIMEOUT,0,,") > .output/${ALGORITHM}_$(date +%s%N).txt &
+    for ALGORITHM in "${ALGORITHMS[@]}"
+    do
+      while [ $(jobs | wc -l) -ge ${THREADS} ] ; do sleep 1 ; done
+      (timeout --foreground $MAX_RUNTIME $SD_BINARY $FILE -a $ALGORITHM -b -s $i || echo "$FILE,$ALGORITHM,TIMEOUT,0,,") > .output/${ALGORITHM}_$(date +%s%N).txt &
+    done
   done
 done
 
 wait
-echo "filename,algorithm,time,result_components,result_cell_counts,result_boundary_face_counts" > results.csv
+echo "filename,algorithm,time,result_feasible,result_components,seed,result_cell_counts,result_boundary_face_counts" > results.csv
 cat .output/*.txt >> results.csv
 rm -rf .output
