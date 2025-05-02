@@ -54,7 +54,7 @@ void StarDecompositionBoundaryLp::init_component(Mesh& mesh, const OpenMesh::Fac
 
     _cmpNormal = _mesh.data(startF).normal_q();
     _cmpCenter = _mesh.face_center(startF);
-    auto p = get_fix_vertex_pos(mesh, _cmpCenter, _cmpNormal);
+    auto p = get_fix_vertex_pos(mesh, _boundaries[0], _cmpCenter, _cmpNormal);
     if (p.has_value()) {
         _boundaries[0].set_fix_vertex(p.value());
     } else {
@@ -99,15 +99,15 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
         return 1;
     }
 
-    auto boundary = &_boundaries[0];
-    bool valid = is_valid_with(*boundary, newFace, _cmpCenter);
+    MeshBoundary& boundary = _boundaries[0];
+    bool valid = is_valid_with(boundary, newFace, _cmpCenter);
     Eigen::Vector3d color = { (double)!valid, (double)valid, 0 };
     auto addedFacesNormal = _mesh.data(newFace).normal_q();
 
     TxDeleteMesh txMesh(mesh);
     OpenMesh::FaceHandle face = txMesh.add_face(triangle);
     mesh.set_normal_q(face, _mesh.data(newFace).normal_q());
-    boundary->add_boundary_halfedge(face);
+    boundary.add_boundary_halfedge(face);
     mpq_class f1 = _nextComponentFaces / (_nextComponentFaces + 1.0f);
     mpq_class f2 = 1.0f / (_nextComponentFaces + 1.0f);
     Vector3q meshNormal = ((_cmpNormal * f1) + (addedFacesNormal * f2));// .unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
@@ -120,12 +120,12 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
             invalidCenter = true;
             color = { 0, 0, 1 };
         } else {
-            auto p = get_fix_vertex_pos(mesh, cmpCenter.second, meshNormalD);
+            auto p = get_fix_vertex_pos(mesh, boundary, cmpCenter.second, meshNormalD);
             if (p.has_value()) {
                 valid = true;
                 // TODO: Verbosely set in is_valid_component
                 // _cmpCenter = cmpCenter.second;
-                boundary->set_fix_vertex(p.value());
+                boundary.set_fix_vertex(p.value());
                 _recheckFailed = true;
                 color = { 0, 1, 1 };
             }
@@ -138,7 +138,7 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
             _cmpVertexMap.erase(newFaceVertex);
         }
 
-        boundary->remove_boundary_halfedge(face);
+        boundary.remove_boundary_halfedge(face);
         txMesh.revert();
     } else {
         _cmpNormal = meshNormal;
@@ -161,7 +161,7 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
     }
 }
 
-std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& mesh, const Vector3q& cPos, const Vector3q& n) {
+std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& mesh, MeshBoundary &boundary, const Vector3q& cPos, const Vector3q& n) {
     mpq_class t;
     auto normal = n;
     auto center = cPos;
@@ -177,7 +177,7 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
             p = cPos - normal * (t / pow(2, i));
             p = p.unaryExpr([](mpq_class x) { return x.get_d(); }).cast<mpq_class>();
 
-            if (is_valid_fixpoint(mesh, p, center)) {
+            if (is_valid_fixpoint(mesh, boundary, p, center)) {
                 _cmpCenter = center.cast<mpq_class>();
                 return p;
             }
@@ -187,8 +187,8 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
     return std::nullopt;
 }
 
-bool StarDecompositionBoundaryLp::is_valid_fixpoint(Mesh& mesh, const Vector3q& fixV, Vector3q& center) {
-    if (!is_valid_component(mesh, fixV, center)) {
+bool StarDecompositionBoundaryLp::is_valid_fixpoint(Mesh& mesh, MeshBoundary &boundary, const Vector3q& fixV, Vector3q& center) {
+    if (!is_valid_component(mesh, boundary, fixV, center)) {
         return false;
     }
 
@@ -222,7 +222,7 @@ std::pair<StarCenterResult, Vector3q> StarDecompositionBoundaryLp::has_valid_cen
     return std::make_pair(result.first, newCenter);
 }
 
-bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, const Vector3q& fixV, Vector3q& center) {
+bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, MeshBoundary &boundary, const Vector3q& fixV, Vector3q& center) {
     std::vector<Eigen::Vector3d> positions(_nextComponentFaces + 1);
     std::vector<Eigen::Vector3d> normals(_nextComponentFaces + 1);
     int i = 0;
