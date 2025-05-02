@@ -24,7 +24,7 @@ for FILE in $FILES
 do
   echo "Testing on $FILE"
   ROW="$FILE"
-  for i in $( eval echo {0..$NUM_REPEATS} )
+  for i in $( eval echo {1..$NUM_REPEATS} )
   do
     for ALGORITHM in "${ALGORITHMS[@]}"
     do
