@@ -28,8 +28,18 @@ do
   do
     for ALGORITHM in "${ALGORITHMS[@]}"
     do
-      while [ $(jobs | wc -l) -ge ${THREADS} ] ; do sleep 1 ; done
-      (timeout --foreground $MAX_RUNTIME $SD_BINARY $FILE -a $ALGORITHM -b -s $i || echo "$FILE,$ALGORITHM,TIMEOUT,0,,") > .output/${ALGORITHM}_$(date +%s%N).txt &
+      while [ $(jobs -p | wc -l) -ge ${THREADS} ] ; do sleep 1 ; done
+      (
+        timeout --foreground "$MAX_RUNTIME" "$SD_BINARY" "$FILE" -a "$ALGORITHM" -b -s "$i"
+
+        status=$?
+
+        if [ $status -eq 124 ]; then
+          echo "$FILE,$ALGORITHM,TIMEOUT,0,,,,"
+        elif [ $status -ne 0 ]; then
+          echo "$FILE,$ALGORITHM,ERROR,0,,,,"
+        fi
+      ) > ".output/${ALGORITHM}_$(date +%s%N).txt" &
     done
   done
 done
