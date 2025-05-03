@@ -9,12 +9,6 @@
 #include <optional>
 
 void StarDecompositionBoundaryChebyshev::finalize_component(Mesh& cmpMesh) {
-    for (auto f : _mesh.faces()) {
-        if (_mesh.property(_selected, f)) {
-            _mesh.delete_face(f, true);
-        }
-    }
-
     for (auto b : _boundaries) {
         Vector3q openingCenter = Vector3q::Zero();
         int numBoundaryVertices = 0;
@@ -32,7 +26,15 @@ void StarDecompositionBoundaryChebyshev::finalize_component(Mesh& cmpMesh) {
                 break;
             }
         }
+    }
 
+    for (auto f : _mesh.faces()) {
+        if (_mesh.property(_selected, f)) {
+            _mesh.delete_face(f, true);
+        }
+    }
+
+    for (auto b : _boundaries) {
         auto cmpFixVertex = cmpMesh.add_vertex_q(b.get_fix_vertex());
         for (auto h : b.get_halfedges()) {
             cmpMesh.add_face(cmpMesh.from_vertex_handle(h), cmpMesh.to_vertex_handle(h), cmpFixVertex);
