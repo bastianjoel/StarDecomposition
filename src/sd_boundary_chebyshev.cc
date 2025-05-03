@@ -123,7 +123,7 @@ int StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMe
             _cmpVertexMap[hv] = newVertex;
             _meshVertexMap[newVertex] = hv;
             newFaceVertex = hv;
-        } else {
+        } else if (_cmpVertexMap[hvTo].is_valid()) {
             OpenMesh::HalfedgeHandle h = mesh.find_halfedge(_cmpVertexMap[hvTo], _cmpVertexMap[hv]);
             if (h.is_valid()) {
                 if (singleExistingEdge.is_valid()) {
@@ -142,8 +142,8 @@ int StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMe
         return 1;
     }
 
-    auto boundary = &_boundaries[0];
-    bool valid = is_valid_with(*boundary, newFace, _cmpCenter);
+    MeshBoundary& boundary = _boundaries[0];
+    bool valid = is_valid_with(boundary, newFace, _cmpCenter);
     bool illegalTriangle = false;
     if (!valid) {
         for (auto fh : _mesh.fh_range(newFace)) {
@@ -152,8 +152,7 @@ int StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMe
             if (!_nextComponent.find_halfedge(_cmpVertexMap[hv], _cmpVertexMap[hvTo]).is_valid()) {
                 auto v0 = _mesh.data(hvTo).point_q();
                 auto v1 = _mesh.data(hv).point_q();
-                auto n = (v1 - v0).cross(boundary->get_fix_vertex() - v0);
-                std::vector<Vector3q> t = { v0, v1, boundary->get_fix_vertex() };
+                std::vector<Vector3q> t = { v0, v1, boundary.get_fix_vertex() };
                 if (_mesh.triangle_intersects(t, { hv, hvTo }).is_valid()) {
                     illegalTriangle = true;
                     break;
@@ -164,12 +163,12 @@ int StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMe
 
     TxDeleteMesh txMesh(mesh);
     OpenMesh::FaceHandle face = txMesh.add_face(triangle);
-    std::vector<OpenMesh::FaceHandle> illegalFaces;
     mesh.set_normal_q(face, _mesh.data(newFace).normal_q());
-    boundary->add_boundary_halfedge(face);
-    Vector3q originalFixVertex = boundary->get_fix_vertex();
+    std::vector<OpenMesh::FaceHandle> illegalFaces;
+    boundary.add_boundary_halfedge(face);
+    Vector3q originalFixVertex = boundary.get_fix_vertex();
 
-    if (illegalTriangle && move_fix_vertex(mesh, *boundary, true)) {
+    if (illegalTriangle && move_fix_vertex(mesh, boundary, true)) {
         illegalTriangle = false;
     }
 
@@ -201,8 +200,8 @@ int StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMe
         }
 #endif
 
-        boundary->remove_boundary_halfedge(face);
-        boundary->set_fix_vertex(originalFixVertex);
+        boundary.remove_boundary_halfedge(face);
+        boundary.set_fix_vertex(originalFixVertex);
         txMesh.revert();
 
         return 1;
