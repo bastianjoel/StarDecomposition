@@ -13,7 +13,7 @@
 #include "vectorq.h"
 #include "mesh.h"
 
-std::vector<VolumeMesh> sd(VolumeMesh& N, std::string);
-std::vector<VolumeMesh> sd(Mesh& N, std::string);
+std::vector<VolumeMesh> sd(VolumeMesh& N, std::string, int seed = 0);
+std::vector<VolumeMesh> sd(Mesh& N, std::string, int seed = 0);
 
-std::vector<Vector3q> decompose(VolumeMesh& mesh);
+std::vector<Vector3q> decompose(VolumeMesh& mesh, int seed = 0);

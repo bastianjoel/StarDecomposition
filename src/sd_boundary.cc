@@ -2,7 +2,7 @@
 #include "retet.h"
 #include "sd.h"
 
-StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _mesh(m) {
+StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m, int seed) : _mesh(m), seed(seed) {
     _mesh.add_property(_selected);
     _mesh.add_property(_origBound);
     for (auto v : _mesh.vertices()) {
@@ -25,7 +25,7 @@ StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m) : _mesh(m) {
 #endif
 }
 
-StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh) {
+StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh, int seed) : seed(seed) {
     _mesh.add_property(_selected);
     _mesh.add_property(_origBound);
 
@@ -159,7 +159,7 @@ std::optional<Vector3q> StarDecompositionBoundary::is_next_component_valid() {
 }
 
 void StarDecompositionBoundary::fallback(const Mesh& mesh) {
-    auto components = sd(_mesh, "tet");
+    auto components = sd(_mesh, "tet", seed);
     for (auto m : components) {
         _components.push_back(m);
     }

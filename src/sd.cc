@@ -55,7 +55,7 @@ void callback() {
 #endif
 */
 
-std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
+std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm, int seed) {
     for (auto c : N.cells()) {
         if (N.degenerate_or_inverted(c)) {
             std::cout << "Degenerate or inverted tetrahedron in N" << std::endl;
@@ -90,10 +90,10 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     std::cout << "Decompose using ";
     if (algorithm == "tet") {
         std::cout << "tetrahedron" << std::endl;
-        centers = decompose(N);
+        centers = decompose(N, seed);
     } else if (algorithm == "boundary") {
         std::cout << "boundary" << std::endl;
-        StarDecompositionBoundaryChebyshev decomposer(N);
+        StarDecompositionBoundaryChebyshev decomposer(N, seed);
 #ifdef GUI
         decomposer.set_viewer(&viewer);
         std::thread viewer_thread([]() {
@@ -107,7 +107,7 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
         return decomposer.components();
     } else {
         std::cout << "boundary (lp center move)" << std::endl;
-        StarDecompositionBoundaryLp decomposer(N);
+        StarDecompositionBoundaryLp decomposer(N, seed);
 #ifdef GUI
         decomposer.set_viewer(&viewer);
         std::thread viewer_thread([]() {
@@ -159,14 +159,14 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm) {
     return components;
 }
 
-std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
+std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm, int seed) {
 #ifdef GUI
     VolumeMesh M;
     if (!retetrahedrize(N, M)) {
         return {};
     }
 
-    return sd(M, algorithm);
+    return sd(M, algorithm, seed);
 #endif
 #ifndef GUI
     if (algorithm == "tet") {
@@ -181,13 +181,13 @@ std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm) {
     std::cout << "Decompose using ";
     if (algorithm == "boundary") {
         std::cout << "boundary" << std::endl;
-        StarDecompositionBoundaryChebyshev decomposer(N);
+        StarDecompositionBoundaryChebyshev decomposer(N, seed);
         std::vector<Vector3q> centers = decomposer.centers();
         return decomposer.components();
     }
 
     std::cout << "boundary (lp center move)" << std::endl;
-    StarDecompositionBoundaryLp decomposer(N);
+    StarDecompositionBoundaryLp decomposer(N, seed);
     std::vector<Vector3q> centers = decomposer.centers();
 
     return decomposer.components();

@@ -8,8 +8,8 @@
 
 class StarDecompositionBoundaryChebyshev : public StarDecompositionBoundary {
 public:
-    StarDecompositionBoundaryChebyshev(Mesh& m) : StarDecompositionBoundary(m) {}
-    StarDecompositionBoundaryChebyshev(VolumeMesh& vMesh) : StarDecompositionBoundary(vMesh) {}
+    StarDecompositionBoundaryChebyshev(Mesh& m, int seed = 0) : StarDecompositionBoundary(m, seed) {}
+    StarDecompositionBoundaryChebyshev(VolumeMesh& vMesh, int seed = 0) : StarDecompositionBoundary(vMesh, seed) {}
 
 private:
     void init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF);

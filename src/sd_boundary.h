@@ -12,8 +12,8 @@
 
 class StarDecompositionBoundary {
 public:
-    StarDecompositionBoundary(VolumeMesh& m);
-    StarDecompositionBoundary(Mesh& m);
+    StarDecompositionBoundary(VolumeMesh& m, int seed = 0);
+    StarDecompositionBoundary(Mesh& m, int seed = 0);
 
     std::vector<Vector3q> centers();
     std::vector<VolumeMesh> components();
@@ -21,6 +21,7 @@ public:
 protected:
     // When set to true recoverable faces are rechecked starting from next iteration
     bool _recheckFailed = false;
+    int seed = 0;
 
     // Result of the decomposition
     std::vector<VolumeMesh> _components;

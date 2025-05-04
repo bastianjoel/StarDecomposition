@@ -10,8 +10,8 @@
 
 class StarDecompositionBoundaryLp : public StarDecompositionBoundary {
 public:
-    StarDecompositionBoundaryLp(Mesh& m) : StarDecompositionBoundary(m) {}
-    StarDecompositionBoundaryLp(VolumeMesh& vMesh) : StarDecompositionBoundary(vMesh) {}
+    StarDecompositionBoundaryLp(Mesh& m, int seed = 0) : StarDecompositionBoundary(m, seed) {}
+    StarDecompositionBoundaryLp(VolumeMesh& vMesh, int seed = 0) : StarDecompositionBoundary(vMesh, seed) {}
 
 private:
     std::pair<StarCenterResult, Vector3q> has_valid_center(Mesh& mesh, Vector3q normal);

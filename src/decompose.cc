@@ -1,6 +1,6 @@
 #include "sd.h"
 
-std::vector<Vector3q> decompose(VolumeMesh& mesh) {
+std::vector<Vector3q> decompose(VolumeMesh& mesh, int seed) {
     auto Q = mesh.property<Vertex, Vector3q>("Q");
     auto normal = mesh.property<Halfface, Vector3q>();
     for (auto f : mesh.faces()) {
@@ -17,7 +17,7 @@ std::vector<Vector3q> decompose(VolumeMesh& mesh) {
     for (auto c : mesh.cells()) {
         cells.push_back(c);
     }
-    std::default_random_engine gen(0);
+    std::default_random_engine gen(seed);
     std::shuffle(cells.begin(), cells.end(), gen);
     std::vector<Vector3q> centers;
     auto cmp = mesh.property<Cell, int>("cmp", -1);

@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
     if (extension == "obj" || extension == "stl" || extension == "ply") {
         Mesh N;
         OpenMesh::IO::read_mesh(N, N_filename);
-        components = sd(N, algorithm);
+        components = sd(N, algorithm, seed);
     } else {
         int orientation = 0;
         VolumeMesh N = read(N_filename, orientation);
@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        components = sd(N, algorithm);
+        components = sd(N, algorithm, seed);
     }
 
     std::cout << components.size() << " components" << std::endl;
