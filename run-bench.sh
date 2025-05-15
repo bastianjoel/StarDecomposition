@@ -4,16 +4,16 @@ trap "echo Exited!; exit;" SIGINT SIGTERM
 
 THREADS=$(nproc)
 MAX_RUNTIME=30m
-MAX_SIZE="-5000k"
+MAX_SIZE="-10M"
 FILENAME=$2
 TESTDATA_DIR=$1
 SD_BINARY="./build/sd"
 NUM_REPEATS=10
-declare -a ALGORITHMS=("boundary" "boundary-lp")
+declare -a ALGORITHMS=("boundary" "boundary-lp" "tet")
 # declare -a ALGORITHMS=("tet")
 
 # Collect the files
-FILES=$(find $TESTDATA_DIR -size $MAX_SIZE -name "${FILENAME}.*" \( -iname "*.vtk" -or -iname "*.stl" \) -printf '%s\t%p\n' | sort -n | cut -f2-)
+FILES=$(find $TESTDATA_DIR -size $MAX_SIZE -name "${FILENAME}.*" \( -iname "*.vtk" -or -iname "*.off" -or -iname "*.stl" \) -printf '%s\t%p\n' | sort -n | cut -f2-)
 
 rm -rf .output || true
 mkdir .output
@@ -30,7 +30,7 @@ do
     do
       while [ $(jobs -p | wc -l) -ge ${THREADS} ] ; do sleep 1 ; done
       (
-        timeout --foreground "$MAX_RUNTIME" "$SD_BINARY" "$FILE" -a "$ALGORITHM" -b -s "$i"
+        timeout --foreground "$MAX_RUNTIME" "$SD_BINARY" "$FILE" -a "$ALGORITHM" -b -f -s "$i"
 
         status=$?
 

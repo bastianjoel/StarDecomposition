@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
     }
     std::vector<VolumeMesh> components;
     std::string extension = N_filename.substr(N_filename.rfind('.') + 1);
-    if (extension == "obj" || extension == "stl" || extension == "ply") {
+    if (extension == "obj" || extension == "stl" || extension == "off" || extension == "ply") {
         Mesh N;
         OpenMesh::IO::read_mesh(N, N_filename);
         components = sd(N, algorithm, seed);
