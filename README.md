@@ -123,7 +123,7 @@ The benchmark results are stored in the ```benchmarks``` directory.
 To run benchmarks the `run-bench.sh` script can be used. 
 It accepts two arguments:
 - The first argument is the path to the directory containing the meshes.
-- The second argument is a file name pattern with the extension `.vtk` to filter the meshes.
+- The second argument is a file name pattern without the extension (e.g. `.vtk`) to filter the meshes.
 
 e.g. `./run-bench.sh ../meshes "*"`
 
