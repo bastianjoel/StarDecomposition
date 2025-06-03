@@ -1,4 +1,5 @@
 #include "retet.h"
+#include "OpenMesh/Core/Mesh/Handles.hh"
 
 bool retetrahedrize(VolumeMesh& mesh) {
     tetgenbehavior behavior;
@@ -87,11 +88,13 @@ bool retetrahedrize(const Mesh& mesh, VolumeMesh& outMesh) {
     in.firstnumber = 0;
     in.numberofpoints = mesh.n_vertices();
     in.pointlist = new double[in.numberofpoints * 3];
+    in.pointmarkerlist = new int[in.numberofpoints];
     for (auto v : mesh.vertices()) {
         Eigen::Vector3d p = mesh.point(v);
         for (int j = 0; j < 3; j++) {
             in.pointlist[3 * v.idx() + j] = p(j);
         }
+        in.pointmarkerlist[v.idx()] = v.idx() + 1;
     }
     in.numberoffacets = mesh.n_faces();
     in.facetlist = new tetgenio::facet[in.numberoffacets];
@@ -123,6 +126,7 @@ bool retetrahedrize(const Mesh& mesh, VolumeMesh& outMesh) {
         return false;
     }
     outMesh = VolumeMesh();
+    auto Q = outMesh.property<Vertex, Vector3q>("Q");
     std::vector<Vertex> vertices;
     for (int i = 0; i < out.numberofpoints; i++) {
         Eigen::Vector3d p;
@@ -130,6 +134,13 @@ bool retetrahedrize(const Mesh& mesh, VolumeMesh& outMesh) {
             p(j) = out.pointlist[3 * i + j];
         }
         Vertex v = outMesh.add_vertex(p);
+        if (out.pointmarkerlist[i] > 0) {
+            int vIdx = out.pointmarkerlist[i] - 1;
+            auto oldV = mesh.vertex_handle(vIdx);
+            Q[v] = mesh.data(oldV).point_q();
+        } else {
+            Q[v] = p.cast<mpq_class>();
+        }
         vertices.push_back(v);
     }
     for (int i = 0; i < out.numberoftetrahedra; i++) {

@@ -63,9 +63,12 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm, int seed) {
         }
     }
 
+    bool qNeedInit = !N.property_exists<Vector3q, typename Vertex::EntityTag>("Q");
     auto Q = N.property<Vertex, Vector3q>("Q");
-    for (auto v : N.vertices()) {
-        Q[v] = N.position(v).cast<mpq_class>();
+    if (qNeedInit) {
+        for (auto v : N.vertices()) {
+            Q[v] = N.position(v).cast<mpq_class>();
+        }
     }
 
 #ifdef GUI
