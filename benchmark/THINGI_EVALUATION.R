@@ -28,6 +28,13 @@ min_components_per_filename <- data %>%
   group_by(filename) %>%
   summarise(min_result_components = min(result_components, na.rm = TRUE))
 
+# Find the maximum result_components for each filename
+max_components_per_filename <- data %>%
+  group_by(filename) %>%
+  summarise(max_result_components = max(result_components, na.rm = TRUE))
+
+count(max_components_per_filename)
+
 # Join back with the original data to find the algorithm(s) that achieved the minimum
 best_algorithms <- data %>%
   inner_join(min_components_per_filename, by = "filename") %>%
@@ -41,17 +48,30 @@ best_algorithm_counts <- best_algorithms %>%
   summarise(count = n()) %>%
   arrange(desc(count))
 
+new_legend_title <- "Algorithm" 
+
+new_algorithm_labels <- c(
+  "boundary" = "Dynamic enclosure vertex move",
+  "boundary-lp" = "Component normal direction",
+  "tet" = "Tetrahedron decompose"
+)
+
 # Create the bar graph
 ggplot(best_algorithm_counts, aes(x = reorder(algorithm, -count), y = count, fill = algorithm)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity", color= "black") +
   theme_minimal() +
   labs(
-    title = "Number of Instances Each Algorithm Performed Best",
-    x = "Algorithm",
-    y = "Number of Times Best (Minimal result_components)",
+    x = "",
+    y = "Number of Times Best",
     fill = "Algorithm"
+  ) +  
+  scale_fill_manual(
+    values = c("#f8766d", "#00b0f6", "#a39a42"), # Automatically use ggplot's default colors
+    labels = new_algorithm_labels,
+    name = new_legend_title
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_blank(),
+        legend.position = "bottom") +
   geom_text(aes(label = count), vjust = -0.5, size = 3.5) # Add count labels on bars
 
 # Print the table of best algorithm counts

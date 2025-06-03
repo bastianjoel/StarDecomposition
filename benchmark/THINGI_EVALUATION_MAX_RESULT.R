@@ -11,7 +11,7 @@ for (amount_val in 2:20) {
   filtered_data <- results %>%
     filter(algorithm %in% c("tet", "boundary-lp")) %>%
     filter(result_components > 1) %>%
-    filter((algorithm == "boundary-lp" & result_components <= amount_val) |
+    filter((algorithm == "boundary-lp" & result_components == amount_val) |
              (algorithm != "boundary-lp"))
   
   total_unique_algorithms <- n_distinct(filtered_data$algorithm)
@@ -64,12 +64,12 @@ new_algorithm_labels <- c(
 
 ggplot(combined_results, aes(x = amount, y = count, fill = algorithm)) +
   # Use position_dodge to place bars side-by-side
-  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), color = "black") +
   coord_flip() + # Makes the bars horizontal
   theme_minimal() +
   labs(
-    x = "Amount Filter Value",
-    y = "Number of ",
+    x = "Component normal direction result",
+    y = "Number of instances the algorithm preformed equal or better",
     fill = "Algorithm"
   ) +
   scale_fill_manual(
@@ -86,7 +86,7 @@ ggplot(combined_results, aes(x = amount, y = count, fill = algorithm)) +
   geom_text(
     aes(label = count),
     position = position_dodge(width = 0.9), # Match dodge width with geom_bar
-    hjust = -0.1, # Adjust horizontal position for horizontal bars
+    hjust = -0.2, # Adjust horizontal position for horizontal bars
     size = 3.5
   ) +
   scale_x_continuous(
