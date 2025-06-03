@@ -6,6 +6,8 @@
 #include <Eigen/src/Core/Matrix.h>
 #include <vector>
 
+namespace StarDecomposition
+{
 // Axis-aligned min bounding box
 struct AABB
 {
@@ -87,3 +89,4 @@ struct BVHNode
         }
     }
 };
+}

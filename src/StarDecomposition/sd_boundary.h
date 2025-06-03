@@ -2,14 +2,16 @@
 
 #include "mesh.h"
 #include "mesh_boundary.h"
-#include "volume_mesh.h"
 #include "vectorq.h"
+#include "volume_mesh.h"
 #include <optional>
 
 #ifdef GUI
 #include "viewer.h"
 #endif
 
+namespace StarDecomposition
+{
 class StarDecompositionBoundary {
 public:
     StarDecompositionBoundary(VolumeMesh& m, int seed = 0);
@@ -65,3 +67,4 @@ public:
     void set_viewer(Viewer* viewer) { _viewer = viewer; }
 #endif
 };
+}

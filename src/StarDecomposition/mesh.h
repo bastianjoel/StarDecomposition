@@ -1,52 +1,54 @@
 #pragma once
 
-#include <Eigen/Dense>
+#include "../assertion.h"
 #include "OpenMesh/Core/Mesh/Attributes.hh"
 #include "OpenMesh/Core/Mesh/Traits.hh"
-#include <Eigen/src/Core/Matrix.h>
-#include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
-#include <OpenMesh/Core/Geometry/EigenVectorT.hh>
-#include <utility>
-#include "assertion.h"
 #include "bvh.h"
 #include "lp.h"
-#include "vectorq.h"
 #include "tritri.h"
+#include "vectorq.h"
+#include <Eigen/Dense>
+#include <Eigen/src/Core/Matrix.h>
+#include <OpenMesh/Core/Geometry/EigenVectorT.hh>
+#include <OpenMesh/Core/Mesh/TriMesh_ArrayKernelT.hh>
+#include <utility>
 
+namespace StarDecomposition
+{
 // define traits
 struct MyTraits : public OpenMesh::DefaultTraits
 {
-  typedef Eigen::Vector3d Point;
-  typedef Eigen::Vector3d Normal;
+    typedef Eigen::Vector3d Point;
+    typedef Eigen::Vector3d Normal;
 
-  // use face normals
-  FaceAttributes(OpenMesh::Attributes::Normal | OpenMesh::Attributes::Status);
+    // use face normals
+    FaceAttributes(OpenMesh::Attributes::Normal | OpenMesh::Attributes::Status);
 
-  HalfedgeAttributes(OpenMesh::Attributes::Status);
+    HalfedgeAttributes(OpenMesh::Attributes::Status);
 
-  EdgeAttributes(OpenMesh::Attributes::Status);
+    EdgeAttributes(OpenMesh::Attributes::Status);
 
-  VertexAttributes(OpenMesh::Attributes::Status);
+    VertexAttributes(OpenMesh::Attributes::Status);
 
-  VertexTraits {
-  private:
-      Vector3q _point_q;
-  public:
-      const Vector3q& point_q() const { return _point_q; }
-      void set_point_q(const Vector3q& q) { _point_q = q; }
-  };
+    VertexTraits {
+        private:
+        Vector3q _point_q;
+        public:
+        const Vector3q& point_q() const { return _point_q; }
+        void set_point_q(const Vector3q& q) { _point_q = q; }
+    };
 
-  FaceTraits {
-  private:
-      Vector3q _normal_q;
-      Eigen::Vector3d _normal_normalized;
-  public:
-      const Vector3q& normal_q() const { return _normal_q; }
-      void set_normal_q(const Vector3q& q) { _normal_q = q; }
+    FaceTraits {
+        private:
+        Vector3q _normal_q;
+        Eigen::Vector3d _normal_normalized;
+        public:
+        const Vector3q& normal_q() const { return _normal_q; }
+        void set_normal_q(const Vector3q& q) { _normal_q = q; }
 
-      const Eigen::Vector3d& normal_normalized() const { return _normal_normalized; }
-      void set_normal_normalized(const Eigen::Vector3d& n) { _normal_normalized = n; }
-  };
+        const Eigen::Vector3d& normal_normalized() const { return _normal_normalized; }
+        void set_normal_normalized(const Eigen::Vector3d& n) { _normal_normalized = n; }
+    };
 };
 
 // typedef OpenMesh::TriMesh_ArrayKernelT<MyTraits>  Mesh;
@@ -115,15 +117,16 @@ public:
     }
 
     void revert() {
-      for (auto f : _addedFaces) {
-          _mesh.delete_face(f, true);
-      }
+        for (auto f : _addedFaces) {
+            _mesh.delete_face(f, true);
+        }
 
-      for (int i = 0; i < _deletedFaces.size(); i += 3) {
-          auto nF = _mesh.add_face(_deletedFaces[i], _deletedFaces[i + 1], _deletedFaces[i + 2]);
-          _mesh.set_normal(nF, _mesh.calc_normal(nF));
-      }
+        for (int i = 0; i < _deletedFaces.size(); i += 3) {
+            auto nF = _mesh.add_face(_deletedFaces[i], _deletedFaces[i + 1], _deletedFaces[i + 2]);
+            _mesh.set_normal(nF, _mesh.calc_normal(nF));
+        }
     }
 };
 
 typedef TxDeleteT<Mesh>  TxDeleteMesh;
+}

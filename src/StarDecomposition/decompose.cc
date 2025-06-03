@@ -1,6 +1,6 @@
 #include "sd.h"
 
-std::vector<Vector3q> decompose(VolumeMesh& mesh, int seed) {
+std::vector<Vector3q> StarDecomposition::decompose(VolumeMesh& mesh, int seed) {
     auto Q = mesh.property<Vertex, Vector3q>("Q");
     auto normal = mesh.property<Halfface, Vector3q>();
     for (auto f : mesh.faces()) {

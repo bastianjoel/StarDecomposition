@@ -1,7 +1,7 @@
 #include "retet.h"
 #include "OpenMesh/Core/Mesh/Handles.hh"
 
-bool retetrahedrize(VolumeMesh& mesh) {
+bool StarDecomposition::retetrahedrize(VolumeMesh& mesh) {
     tetgenbehavior behavior;
     behavior.plc = 1;
     behavior.quality = 1;
@@ -78,7 +78,7 @@ bool retetrahedrize(VolumeMesh& mesh) {
     return true;
 }
 
-bool retetrahedrize(const Mesh& mesh, VolumeMesh& outMesh) {
+bool StarDecomposition::retetrahedrize(const Mesh& mesh, VolumeMesh& outMesh) {
     tetgenbehavior behavior;
     behavior.plc = 1;
     behavior.quality = 1;

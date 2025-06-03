@@ -12,6 +12,8 @@
 
 #include "volume_mesh.h"
 
+namespace StarDecomposition
+{
 class Viewer {
 public:
     Viewer(VolumeMesh& mesh);
@@ -124,3 +126,4 @@ private:
     std::vector<std::vector<Eigen::Vector3d>> extra_line_positions_;
     std::vector<std::vector<Eigen::Vector3d>> extra_line_colors_;
 };
+}

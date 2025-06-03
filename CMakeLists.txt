@@ -67,7 +67,7 @@ if(GUI)
 endif()
 
 add_library(StarDecomposition)
-target_sources(StarDecomposition PRIVATE src/decompose.cc src/sd_boundary_lp.cc src/sd_boundary_chebyshev.cc src/sd_boundary.cc src/lp.cc src/main.cc src/mesh.cc src/volume_mesh.cc src/retet.cc src/sd.cc)
+target_sources(StarDecomposition PRIVATE src/StarDecomposition/decompose.cc src/StarDecomposition/sd_boundary_lp.cc src/StarDecomposition/sd_boundary_chebyshev.cc src/StarDecomposition/sd_boundary.cc src/StarDecomposition/lp.cc src/main.cc src/StarDecomposition/mesh.cc src/StarDecomposition/volume_mesh.cc src/StarDecomposition/retet.cc src/StarDecomposition/sd.cc)
 target_link_libraries(StarDecomposition Eigen3::Eigen CGAL::CGAL ${GMP_LIBRARIES} ${GMPXX_LIBRARIES} OpenVolumeMesh::OpenVolumeMesh OpenMeshCore predicates tet)
 target_include_directories(StarDecomposition PUBLIC ${CGAL_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${GMPXX_INCLUDE_DIR} ext/OpenVolumeMesh/src ${CMAKE_BINARY_DIR}/ext/OpenVolumeMesh/src ext/OpenMesh/src ext/tetgen src)
 
@@ -76,11 +76,11 @@ target_sources(sd PRIVATE src/main.cc)
 target_link_libraries(sd StarDecomposition)
 
 if(GUI)
-    target_sources(sd PRIVATE src/viewer.cc)
+    target_sources(sd PRIVATE src/StarDecomposition/viewer.cc)
     target_link_libraries(sd imgui tinyfiledialogs stb)
     target_compile_definitions(sd PRIVATE GUI SAVE_DEBUG_MESHES)
 
-    target_sources(StarDecomposition PRIVATE src/viewer.cc)
+    target_sources(StarDecomposition PRIVATE src/StarDecomposition/viewer.cc)
     target_link_libraries(StarDecomposition imgui tinyfiledialogs stb)
     target_compile_definitions(StarDecomposition PRIVATE GUI SAVE_DEBUG_MESHES)
 endif()

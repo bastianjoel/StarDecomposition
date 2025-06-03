@@ -6,7 +6,7 @@
 #include "viewer.h"
 
 VolumeMesh viewer_mesh;
-Viewer viewer(viewer_mesh);
+StarDecomposition::Viewer viewer(viewer_mesh);
 
 bool show_coordinate_system = false;
 
@@ -55,7 +55,7 @@ void callback() {
 #endif
 */
 
-std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm, int seed) {
+std::vector<VolumeMesh> StarDecomposition::sd(VolumeMesh& N, std::string algorithm, int seed) {
     for (auto c : N.cells()) {
         if (N.degenerate_or_inverted(c)) {
             std::cout << "Degenerate or inverted tetrahedron in N" << std::endl;
@@ -162,7 +162,7 @@ std::vector<VolumeMesh> sd(VolumeMesh& N, std::string algorithm, int seed) {
     return components;
 }
 
-std::vector<VolumeMesh> sd(Mesh& N, std::string algorithm, int seed) {
+std::vector<VolumeMesh> StarDecomposition::sd(Mesh& N, std::string algorithm, int seed) {
 #ifdef GUI
     VolumeMesh M;
     if (!retetrahedrize(N, M)) {

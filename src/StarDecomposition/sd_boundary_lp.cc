@@ -3,12 +3,12 @@
 #include "lp.h"
 #include "vectorq.h"
 #include <Eigen/src/Core/Matrix.h>
+#include <OpenMesh/Core/IO/MeshIO.hh>
 #include <cmath>
 #include <cstdio>
 #include <map>
-#include <OpenMesh/Core/IO/MeshIO.hh>
 
-void StarDecompositionBoundaryLp::finalize_component(Mesh& cmpMesh) {
+void StarDecomposition::StarDecompositionBoundaryLp::finalize_component(Mesh& cmpMesh) {
     for (auto f : _mesh.faces()) {
         if (_mesh.property(_selected, f)) {
             _mesh.delete_face(f, true);
@@ -39,7 +39,7 @@ void StarDecompositionBoundaryLp::finalize_component(Mesh& cmpMesh) {
     _mesh.generate_bvh();
 }
 
-void StarDecompositionBoundaryLp::init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF) {
+void StarDecomposition::StarDecompositionBoundaryLp::init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF) {
     std::vector<OpenMesh::VertexHandle> newHfVertices;
     for (auto hv : _mesh.fv_range(startF)) {
         auto newVertex = mesh.add_vertex_q(_mesh.data(hv).point_q());
@@ -67,7 +67,7 @@ void StarDecompositionBoundaryLp::init_component(Mesh& mesh, const OpenMesh::Fac
 /**
  * Adds a face to an existing triangle mesh
  */
-int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
+int StarDecomposition::StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
     OpenMesh::VertexHandle newFaceVertex;
     std::vector<OpenMesh::VertexHandle> triangle;
 
@@ -161,7 +161,7 @@ int StarDecompositionBoundaryLp::add_face_to_cmp(Mesh& mesh, const OpenMesh::Fac
     }
 }
 
-std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& mesh, MeshBoundary &boundary, const Vector3q& cPos, const Vector3q& n) {
+std::optional<Vector3q> StarDecomposition::StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& mesh, MeshBoundary &boundary, const Vector3q& cPos, const Vector3q& n) {
     mpq_class t;
     auto normal = n;
     auto center = cPos;
@@ -187,7 +187,7 @@ std::optional<Vector3q> StarDecompositionBoundaryLp::get_fix_vertex_pos(Mesh& me
     return std::nullopt;
 }
 
-bool StarDecompositionBoundaryLp::is_valid_fixpoint(Mesh& mesh, MeshBoundary &boundary, const Vector3q& fixV, Vector3q& center) {
+bool StarDecomposition::StarDecompositionBoundaryLp::is_valid_fixpoint(Mesh& mesh, MeshBoundary &boundary, const Vector3q& fixV, Vector3q& center) {
     if (!is_valid_component(mesh, boundary, fixV, center)) {
         return false;
     }
@@ -203,7 +203,7 @@ bool StarDecompositionBoundaryLp::is_valid_fixpoint(Mesh& mesh, MeshBoundary &bo
     return true;
 }
 
-std::pair<StarCenterResult, Vector3q> StarDecompositionBoundaryLp::has_valid_center(Mesh& mesh, Vector3q normal) {
+std::pair<StarDecomposition::StarCenterResult, Vector3q> StarDecomposition::StarDecompositionBoundaryLp::has_valid_center(Mesh& mesh, Vector3q normal) {
     std::vector<Eigen::Vector3d> positions(_nextComponentFaces + 1);
     std::vector<Eigen::Vector3d> normals(_nextComponentFaces + 1);
     int i = 0;
@@ -222,7 +222,7 @@ std::pair<StarCenterResult, Vector3q> StarDecompositionBoundaryLp::has_valid_cen
     return std::make_pair(result.first, newCenter);
 }
 
-bool StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, MeshBoundary &boundary, const Vector3q& fixV, Vector3q& center) {
+bool StarDecomposition::StarDecompositionBoundaryLp::is_valid_component(Mesh& mesh, MeshBoundary &boundary, const Vector3q& fixV, Vector3q& center) {
     std::vector<Eigen::Vector3d> positions(_nextComponentFaces + 1);
     std::vector<Eigen::Vector3d> normals(_nextComponentFaces + 1);
     int i = 0;

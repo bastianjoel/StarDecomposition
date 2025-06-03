@@ -9,7 +9,6 @@
 
 #include "vectorq.h"
 
-
 inline bool tri_ray_intersect(const Vector3q& ray_origin, const Vector3q& ray_vector, const Vector3q& V0, const Vector3q& V1, const Vector3q& V2, mpq_class& factor)
 {
     Vector3q edge1 = V1 - V0;

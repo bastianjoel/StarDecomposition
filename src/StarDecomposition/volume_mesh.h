@@ -243,9 +243,9 @@ public:
 
     bool degenerate_or_inverted(::Cell c);
 
-    Mesh to_mesh_q();
+    StarDecomposition::Mesh to_mesh_q();
 
-    Mesh to_mesh();
+    StarDecomposition::Mesh to_mesh();
 
 private:
     int n_tmp_propertys;

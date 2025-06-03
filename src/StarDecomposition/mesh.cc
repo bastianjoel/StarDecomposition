@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <set>
 
-Vector3q Mesh::face_center(OpenMesh::FaceHandle fh) {
+Vector3q StarDecomposition::Mesh::face_center(OpenMesh::FaceHandle fh) {
     Vector3q center = Vector3q(0, 0, 0);
     for (auto v : fv_range(fh)) {
         center += data(v).point_q();
@@ -13,7 +13,7 @@ Vector3q Mesh::face_center(OpenMesh::FaceHandle fh) {
 
 // https://math.stackexchange.com/questions/51326/determining-if-an-arbitrary-point-lies-inside-a-triangle-defined-by-three-points
 // https://gdbooks.gitbooks.io/3dcollisions/content/Chapter4/point_in_triangle.html
-bool Mesh::point_on_face(OpenMesh::FaceHandle fh, Vector3q p) {
+bool StarDecomposition::Mesh::point_on_face(OpenMesh::FaceHandle fh, Vector3q p) {
     std::vector<Vector3q> t;
     for (auto hv : fv_range(fh)) {
         t.push_back(data(hv).point_q());
@@ -33,14 +33,14 @@ bool Mesh::point_on_face(OpenMesh::FaceHandle fh, Vector3q p) {
     return true;
 }
 
-OpenMesh::SmartVertexHandle Mesh::add_vertex_q(const Vector3q p) {
+OpenMesh::SmartVertexHandle StarDecomposition::Mesh::add_vertex_q(const Vector3q p) {
     auto fixVertex = add_vertex(p.unaryExpr([](mpq_class x) { return x.get_d(); }));
     data(fixVertex).set_point_q(p);
 
     return fixVertex;
 }
 
-Vector3q Mesh::update_normal_q(OpenMesh::FaceHandle fh) {
+Vector3q StarDecomposition::Mesh::update_normal_q(OpenMesh::FaceHandle fh) {
     std::vector<Vector3q> triangle;
     for (auto fv : fv_range(fh)) {
         triangle.push_back(data(fv).point_q());
@@ -51,14 +51,14 @@ Vector3q Mesh::update_normal_q(OpenMesh::FaceHandle fh) {
     return n;
 }
 
-void Mesh::set_normal_q(OpenMesh::FaceHandle fh, const Vector3q& n) {
+void StarDecomposition::Mesh::set_normal_q(OpenMesh::FaceHandle fh, const Vector3q& n) {
     data(fh).set_normal_q(n);
     auto nD = n.unaryExpr([](mpq_class x) { return x.get_d(); });
     data(fh).set_normal_normalized(nD.normalized());
     set_normal(fh, nD);
 }
 
-void Mesh::move(OpenMesh::VertexHandle vh, const Vector3q& p) {
+void StarDecomposition::Mesh::move(OpenMesh::VertexHandle vh, const Vector3q& p) {
     data(vh).set_point_q(p);
     set_point(vh, p.unaryExpr([](mpq_class x) { return x.get_d(); }));
     for (auto f : vf_range(vh)) {
@@ -66,7 +66,7 @@ void Mesh::move(OpenMesh::VertexHandle vh, const Vector3q& p) {
     }
 }
 
-OpenMesh::FaceHandle Mesh::triangle_intersects(const std::vector<Vector3q>& t, const std::vector<OpenMesh::VertexHandle>& borderVertices) {
+OpenMesh::FaceHandle StarDecomposition::Mesh::triangle_intersects(const std::vector<Vector3q>& t, const std::vector<OpenMesh::VertexHandle>& borderVertices) {
     Vector3q n = (t[1] - t[0]).cross(t[2] - t[0]);
     if (!_bvh) {
         for (auto face : this->faces()) {
@@ -81,7 +81,7 @@ OpenMesh::FaceHandle Mesh::triangle_intersects(const std::vector<Vector3q>& t, c
     return OpenMesh::FaceHandle();
 }
 
-OpenMesh::FaceHandle Mesh::triangle_intersects_bvh(BVHNode* node, const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices) {
+OpenMesh::FaceHandle StarDecomposition::Mesh::triangle_intersects_bvh(BVHNode* node, const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices) {
     AABB aabb = AABB(t);
 
     if (!aabb.overlaps(node->aabb)) {
@@ -109,7 +109,7 @@ OpenMesh::FaceHandle Mesh::triangle_intersects_bvh(BVHNode* node, const std::vec
     return OpenMesh::FaceHandle();
 }
 
-bool Mesh::triangle_intersects(const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices, const OpenMesh::FaceHandle& face) {
+bool StarDecomposition::Mesh::triangle_intersects(const std::vector<Vector3q>& t, const Vector3q& n, const std::vector<OpenMesh::VertexHandle>& borderVertices, const OpenMesh::FaceHandle& face) {
     std::vector<OpenMesh::VertexHandle> fv = {
         this->to_vertex_handle(this->halfedge_handle(face)),
         this->to_vertex_handle(this->next_halfedge_handle(this->halfedge_handle(face))),
@@ -150,12 +150,12 @@ bool Mesh::triangle_intersects(const std::vector<Vector3q>& t, const Vector3q& n
     return tri_tri_intersect(t[0], t[1], t[2], n, vq[0], vq[1], vq[2], fNormal);
 }
 
-OpenMesh::FaceHandle Mesh::ray_intersects(const Vector3q& o, const Vector3q& n) {
+OpenMesh::FaceHandle StarDecomposition::Mesh::ray_intersects(const Vector3q& o, const Vector3q& n) {
     mpq_class distResult;
     return ray_intersects(o, n, distResult);
 }
 
-OpenMesh::FaceHandle Mesh::ray_intersects(const Vector3q& o, const Vector3q& n, mpq_class& distResult) {
+OpenMesh::FaceHandle StarDecomposition::Mesh::ray_intersects(const Vector3q& o, const Vector3q& n, mpq_class& distResult) {
     distResult = -1;
     if (!_bvh) {
         OpenMesh::FaceHandle opposite;
@@ -188,7 +188,7 @@ OpenMesh::FaceHandle Mesh::ray_intersects(const Vector3q& o, const Vector3q& n, 
     return OpenMesh::FaceHandle();
 }
 
-std::pair<OpenMesh::FaceHandle, mpq_class> Mesh::ray_intersects_bvh(BVHNode* node, const Vector3q& o, const Vector3q& n) {
+std::pair<OpenMesh::FaceHandle, mpq_class> StarDecomposition::Mesh::ray_intersects_bvh(BVHNode* node, const Vector3q& o, const Vector3q& n) {
     if (!node->aabb.ray_intersects(o, n)) {
         return std::make_pair(OpenMesh::FaceHandle(), -1);
     }
@@ -241,7 +241,7 @@ std::pair<OpenMesh::FaceHandle, mpq_class> Mesh::ray_intersects_bvh(BVHNode* nod
     return std::make_pair(OpenMesh::FaceHandle(), -1);
 }
 
-std::pair<bool, Vector3q> Mesh::star_center() {
+std::pair<bool, Vector3q> StarDecomposition::Mesh::star_center() {
     std::vector<Eigen::Vector3d> positions;
     std::vector<Eigen::Vector3d> normals;
     for (auto face : this->faces()) {
@@ -266,7 +266,7 @@ std::pair<bool, Vector3q> Mesh::star_center() {
     return std::make_pair(true, newCenter);
 }
 
-std::pair<bool, mpq_class> Mesh::intersection_factor(const Vector3q& p, const Vector3q& dir, OpenMesh::FaceHandle face) {
+std::pair<bool, mpq_class> StarDecomposition::Mesh::intersection_factor(const Vector3q& p, const Vector3q& dir, OpenMesh::FaceHandle face) {
     auto faceNormal = this->data(face).normal_q();
     auto div = faceNormal.transpose() * dir;
     if (div[0] == 0) {
@@ -280,7 +280,7 @@ std::pair<bool, mpq_class> Mesh::intersection_factor(const Vector3q& p, const Ve
     return std::make_pair(true, (-nominator / denominator)[0]);
 }
 
-std::vector<OpenMesh::HalfedgeHandle> Mesh::boundary_halfedges() {
+std::vector<OpenMesh::HalfedgeHandle> StarDecomposition::Mesh::boundary_halfedges() {
     std::vector<OpenMesh::HalfedgeHandle> boundary_halfedges = {};
     for (auto h : halfedges()) {
         if (is_boundary(h)) {
@@ -312,7 +312,7 @@ std::vector<OpenMesh::HalfedgeHandle> Mesh::boundary_halfedges() {
     return boundary_halfedges;
 }
 
-void Mesh::generate_bvh() {
+void StarDecomposition::Mesh::generate_bvh() {
     if (_bvh != nullptr) {
         delete _bvh;
     }
@@ -324,7 +324,7 @@ void Mesh::generate_bvh() {
     _bvh = generate_bvh(faces);
 }
 
-BVHNode* Mesh::generate_bvh(std::vector<OpenMesh::FaceHandle>& faces, int depth) {
+StarDecomposition::BVHNode* StarDecomposition::Mesh::generate_bvh(std::vector<OpenMesh::FaceHandle>& faces, int depth) {
     std::set<OpenMesh::VertexHandle> vertices;
     for (auto f : faces) {
         for (auto v : fv_range(f)) {

@@ -1,14 +1,14 @@
 #include "sd_boundary_chebyshev.h"
 #include "assertion.h"
 #include <Eigen/src/Core/Matrix.h>
+#include <OpenMesh/Core/IO/MeshIO.hh>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
-#include <OpenMesh/Core/IO/MeshIO.hh>
 #include <optional>
 
-void StarDecompositionBoundaryChebyshev::finalize_component(Mesh& cmpMesh) {
+void StarDecomposition::StarDecompositionBoundaryChebyshev::finalize_component(Mesh& cmpMesh) {
     for (auto b : _boundaries) {
         Vector3q openingCenter = Vector3q::Zero();
         int numBoundaryVertices = 0;
@@ -58,7 +58,7 @@ void StarDecompositionBoundaryChebyshev::finalize_component(Mesh& cmpMesh) {
     _mesh.generate_bvh();
 }
 
-void StarDecompositionBoundaryChebyshev::init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF) {
+void StarDecomposition::StarDecompositionBoundaryChebyshev::init_component(Mesh& mesh, const OpenMesh::FaceHandle& startF) {
     std::vector<OpenMesh::VertexHandle> newHfVertices;
     for (auto hv : _mesh.fv_range(startF)) {
         auto hvQ = _mesh.data(hv).point_q();
@@ -106,7 +106,7 @@ void StarDecompositionBoundaryChebyshev::init_component(Mesh& mesh, const OpenMe
  * 2. Face connects to an existing vertex
  *  In this case the face will be added to the mesh
  */
-int StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
+int StarDecomposition::StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMesh::FaceHandle& newFace) {
     // TODO: Check which edge connects to the component
     // TODO: Use connecting edge to remove an temporary face
     // TODO: Connect open boundaries to the component
@@ -215,7 +215,7 @@ int StarDecompositionBoundaryChebyshev::add_face_to_cmp(Mesh& mesh, const OpenMe
     return 0;
 }
 
-bool StarDecompositionBoundaryChebyshev::move_fix_vertex(Mesh& mesh, MeshBoundary& boundary, bool shrink) {
+bool StarDecomposition::StarDecompositionBoundaryChebyshev::move_fix_vertex(Mesh& mesh, MeshBoundary& boundary, bool shrink) {
     Vector3q vPos = boundary.get_fix_vertex();
     auto nD = boundary.get_fix_vertex_normal() * (shrink ? 1 : -1); // TODO: Check if direction correct
     Vector3q n = nD.cast<mpq_class>();
@@ -245,7 +245,7 @@ bool StarDecompositionBoundaryChebyshev::move_fix_vertex(Mesh& mesh, MeshBoundar
     return false;
 }
 
-bool StarDecompositionBoundaryChebyshev::move_vertex_to(Mesh& mesh, MeshBoundary& boundary, const Vector3q& p) {
+bool StarDecomposition::StarDecompositionBoundaryChebyshev::move_vertex_to(Mesh& mesh, MeshBoundary& boundary, const Vector3q& p) {
     for (auto h : boundary.get_halfedges()) {
         if (triangle_intersects(h, p)) {
             return false;
@@ -264,25 +264,25 @@ bool StarDecompositionBoundaryChebyshev::move_vertex_to(Mesh& mesh, MeshBoundary
     return true;
 }
 
-OpenMesh::FaceHandle StarDecompositionBoundaryChebyshev::get_opposite_face(Mesh& mesh, const OpenMesh::FaceHandle& origin) {
+OpenMesh::FaceHandle StarDecomposition::StarDecompositionBoundaryChebyshev::get_opposite_face(Mesh& mesh, const OpenMesh::FaceHandle& origin) {
     Vector3q vPos = mesh.face_center(origin);
     Vector3q n = -mesh.data(origin).normal_q();
 
     return get_opposite_face(vPos, n);
 }
 
-OpenMesh::FaceHandle StarDecompositionBoundaryChebyshev::get_opposite_face(Mesh& mesh, const OpenMesh::VertexHandle& origin) {
+OpenMesh::FaceHandle StarDecomposition::StarDecompositionBoundaryChebyshev::get_opposite_face(Mesh& mesh, const OpenMesh::VertexHandle& origin) {
     Vector3q vPos = mesh.data(origin).point_q();
     auto n = mesh.calc_normal(origin);
 
     return get_opposite_face(vPos, n.cast<mpq_class>());
 }
 
-OpenMesh::FaceHandle StarDecompositionBoundaryChebyshev::get_opposite_face(Vector3q vPos, Vector3q n) {
+OpenMesh::FaceHandle StarDecomposition::StarDecompositionBoundaryChebyshev::get_opposite_face(Vector3q vPos, Vector3q n) {
     return _mesh.ray_intersects(vPos, n);
 }
 
-std::pair<OpenMesh::FaceHandle, Vector3q> StarDecompositionBoundaryChebyshev::get_fix_vertex_pos(Mesh& mesh, const OpenMesh::FaceHandle& hf) {
+std::pair<OpenMesh::FaceHandle, Vector3q> StarDecomposition::StarDecompositionBoundaryChebyshev::get_fix_vertex_pos(Mesh& mesh, const OpenMesh::FaceHandle& hf) {
     auto opposite = get_opposite_face(mesh, hf);
     if (!opposite.is_valid()) {
         return std::make_pair(opposite, Vector3q::Zero());

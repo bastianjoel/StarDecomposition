@@ -1,7 +1,7 @@
 #include "lp.h"
 #include <utility>
 
-Eigen::Vector3d kernel_chebyshev_center(const std::vector<Eigen::Vector3d>& positions, const std::vector<Eigen::Vector3d>& normals) {
+Eigen::Vector3d StarDecomposition::kernel_chebyshev_center(const std::vector<Eigen::Vector3d>& positions, const std::vector<Eigen::Vector3d>& normals) {
     CGAL::Quadratic_program<double> lp(CGAL::SMALLER, false);
     lp.set_c(3, -1);
     for (int i = 0; i < positions.size(); i++) {
@@ -31,7 +31,7 @@ Eigen::Vector3d kernel_chebyshev_center(const std::vector<Eigen::Vector3d>& posi
     return x;
 }
 
-std::pair<StarCenterResult, Eigen::Vector3d> star_center_close_to(const Eigen::Vector3d& normal, const std::vector<Eigen::Vector3d>& positions, const std::vector<Eigen::Vector3d>& normals) {
+std::pair<StarDecomposition::StarCenterResult, Eigen::Vector3d> StarDecomposition::star_center_close_to(const Eigen::Vector3d& normal, const std::vector<Eigen::Vector3d>& positions, const std::vector<Eigen::Vector3d>& normals) {
     CGAL::Quadratic_program<double> lp(CGAL::SMALLER, false);
     lp.set_c(0, -normal[0]);
     lp.set_c(1, -normal[1]);

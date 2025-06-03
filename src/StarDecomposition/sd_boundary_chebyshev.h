@@ -2,10 +2,12 @@
 
 #include "mesh.h"
 #include "sd_boundary.h"
-#include "volume_mesh.h"
 #include "vectorq.h"
+#include "volume_mesh.h"
 #include <utility>
 
+namespace StarDecomposition
+{
 class StarDecompositionBoundaryChebyshev : public StarDecompositionBoundary {
 public:
     StarDecompositionBoundaryChebyshev(Mesh& m, int seed = 0) : StarDecompositionBoundary(m, seed) {}
@@ -27,3 +29,4 @@ private:
     OpenMesh::FaceHandle get_opposite_face(Vector3q from, Vector3q normal);
     std::pair<OpenMesh::FaceHandle, Vector3q> get_fix_vertex_pos(Mesh& mesh, const OpenMesh::FaceHandle& hf);
 };
+}

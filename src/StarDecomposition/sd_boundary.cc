@@ -2,7 +2,7 @@
 #include "retet.h"
 #include "sd.h"
 
-StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m, int seed) : _mesh(m), seed(seed) {
+StarDecomposition::StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m, int seed) : _mesh(m), seed(seed) {
     _mesh.add_property(_selected);
     _mesh.add_property(_origBound);
     for (auto v : _mesh.vertices()) {
@@ -25,7 +25,7 @@ StarDecompositionBoundary::StarDecompositionBoundary(Mesh& m, int seed) : _mesh(
 #endif
 }
 
-StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh, int seed) : seed(seed) {
+StarDecomposition::StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh, int seed) : seed(seed) {
     _mesh.add_property(_selected);
     _mesh.add_property(_origBound);
 
@@ -58,7 +58,7 @@ StarDecompositionBoundary::StarDecompositionBoundary(VolumeMesh& mesh, int seed)
 #endif
 }
 
-std::vector<Vector3q> StarDecompositionBoundary::centers() {
+std::vector<Vector3q> StarDecomposition::StarDecompositionBoundary::centers() {
     if (!this->_computed) {
         this->start();
     }
@@ -66,7 +66,7 @@ std::vector<Vector3q> StarDecompositionBoundary::centers() {
     return std::vector<Vector3q>();
 }
 
-std::vector<VolumeMesh> StarDecompositionBoundary::components() {
+std::vector<VolumeMesh> StarDecomposition::StarDecompositionBoundary::components() {
     if (!this->_computed) {
         this->start();
     }
@@ -74,7 +74,7 @@ std::vector<VolumeMesh> StarDecompositionBoundary::components() {
     return _components;
 }
 
-void StarDecompositionBoundary::add_component(const Mesh& mesh) {
+void StarDecomposition::StarDecompositionBoundary::add_component(const Mesh& mesh) {
 #ifdef SAVE_DEBUG_MESHES
     char buffer[100];
     std::sprintf(buffer, "debug/cmp_%zu.obj", _components.size());
@@ -99,7 +99,7 @@ void StarDecompositionBoundary::add_component(const Mesh& mesh) {
     }
 }
 
-bool StarDecompositionBoundary::triangle_intersects(const OpenMesh::HalfedgeHandle& h, const Vector3q& p) {
+bool StarDecomposition::StarDecompositionBoundary::triangle_intersects(const OpenMesh::HalfedgeHandle& h, const Vector3q& p) {
     auto v0 = _nextComponent.to_vertex_handle(h);
     auto v1 = _nextComponent.from_vertex_handle(h);
 
@@ -107,7 +107,7 @@ bool StarDecompositionBoundary::triangle_intersects(const OpenMesh::HalfedgeHand
     return _mesh.triangle_intersects(t, { _meshVertexMap[v0], _meshVertexMap[v1] }).is_valid();
 }
 
-bool StarDecompositionBoundary::is_valid_with(const MeshBoundary& b, const OpenMesh::FaceHandle& f, const Vector3q& c) {
+bool StarDecomposition::StarDecompositionBoundary::is_valid_with(const MeshBoundary& b, const OpenMesh::FaceHandle& f, const Vector3q& c) {
     if ((_mesh.data(*_mesh.fv_begin(f)).point_q() - c).dot(_mesh.data(f).normal_q()) <= 0) {
         return false;
     }
@@ -133,7 +133,7 @@ bool StarDecompositionBoundary::is_valid_with(const MeshBoundary& b, const OpenM
     return true;
 }
 
-std::optional<Vector3q> StarDecompositionBoundary::is_next_component_valid() {
+std::optional<Vector3q> StarDecomposition::StarDecompositionBoundary::is_next_component_valid() {
     std::vector<Eigen::Vector3d> positions;
     std::vector<Eigen::Vector3d> normals;
     for (auto face : _nextComponent.faces()) {
@@ -158,14 +158,14 @@ std::optional<Vector3q> StarDecompositionBoundary::is_next_component_valid() {
     return newCenter.cast<mpq_class>();
 }
 
-void StarDecompositionBoundary::fallback(const Mesh& mesh) {
+void StarDecomposition::StarDecompositionBoundary::fallback(const Mesh& mesh) {
     auto components = sd(_mesh, "tet", seed);
     for (auto m : components) {
         _components.push_back(m);
     }
 }
 
-void StarDecompositionBoundary::start() {
+void StarDecomposition::StarDecompositionBoundary::start() {
     int startOffset = 0;
     int resets = 0;
     int bestSinceReset = 0;

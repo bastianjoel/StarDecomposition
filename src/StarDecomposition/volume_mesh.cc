@@ -238,8 +238,8 @@ bool VolumeMesh::degenerate_or_inverted(::Cell c) {
     return orient3d(tetrahedron) >= 0;
 }
 
-Mesh VolumeMesh::to_mesh_q() {
-    Mesh mesh;
+StarDecomposition::Mesh VolumeMesh::to_mesh_q() {
+    StarDecomposition::Mesh mesh;
     auto Q = property<Vertex, Vector3q>("Q");
     std::map<Vertex, OpenMesh::VertexHandle> vMap;
     for (auto v : vertices()) {
@@ -260,8 +260,8 @@ Mesh VolumeMesh::to_mesh_q() {
     return mesh;
 }
 
-Mesh VolumeMesh::to_mesh() {
-    Mesh mesh;
+StarDecomposition::Mesh VolumeMesh::to_mesh() {
+    StarDecomposition::Mesh mesh;
     std::map<Vertex, OpenMesh::VertexHandle> vMap;
     for (auto v : vertices()) {
         vMap[v] = mesh.add_vertex_q(position(v).cast<mpq_class>());

@@ -4,7 +4,7 @@
 
 #include "viewer.h"
 
-Viewer::Viewer(VolumeMesh& mesh)
+StarDecomposition::Viewer::Viewer(VolumeMesh& mesh)
     : mesh_(mesh), rot_(false), trans_(false), rot_cam_(false), scale_(0.5), closed_(false),
       show_cells_(true), show_faces_(false), show_edges_(false), show_vertices_(false),
       vertex_face_colors_(false), use_texture_(false), parameter_space_(false), twod_(false),
@@ -17,7 +17,7 @@ Viewer::Viewer(VolumeMesh& mesh)
 #endif
 }
 
-void Viewer::start(std::function<void()> callback, std::string path, std::string title) {
+void StarDecomposition::Viewer::start(std::function<void()> callback, std::string path, std::string title) {
     callback_ = callback;
     glfwSetErrorCallback([](int error, const char* description) {
         std::cout << "GLFW Error " << error << ": " << description << std::endl;
@@ -181,7 +181,7 @@ void Viewer::start(std::function<void()> callback, std::string path, std::string
     closed_ = true;
 }
 
-void Viewer::reset() {
+void StarDecomposition::Viewer::reset() {
     Eigen::Vector3d min = Eigen::Vector3d::Constant(std::numeric_limits<double>::max());
     Eigen::Vector3d max = Eigen::Vector3d::Constant(std::numeric_limits<double>::lowest());
     for (auto v : mesh_.vertices()) {
@@ -206,11 +206,11 @@ void Viewer::reset() {
     update();
 }
 
-void Viewer::queue_update() {
+void StarDecomposition::Viewer::queue_update() {
     should_update_ = true;
 }
 
-void Viewer::update() {
+void StarDecomposition::Viewer::update() {
     int position_location = glGetAttribLocation(shader_program_, "aPosition");
     int normal_location = glGetAttribLocation(shader_program_, "aNormal");
     int color_location = glGetAttribLocation(shader_program_, "aColor");
@@ -616,11 +616,11 @@ void Viewer::update() {
     }
 }
 
-bool Viewer::is_closed() {
+bool StarDecomposition::Viewer::is_closed() {
     return closed_;
 }
 
-void Viewer::clear_extras() {
+void StarDecomposition::Viewer::clear_extras() {
     extra_triangle_positions_.clear();
     extra_triangle_normals_.clear();
     extra_triangle_colors_.clear();
@@ -628,7 +628,7 @@ void Viewer::clear_extras() {
     extra_line_colors_.clear();
 }
 
-void Viewer::add_triangle(const std::vector<Eigen::Vector3d>& positions, const Eigen::Vector3d& color, const std::vector<Eigen::Vector3d>& _normals) {
+void StarDecomposition::Viewer::add_triangle(const std::vector<Eigen::Vector3d>& positions, const Eigen::Vector3d& color, const std::vector<Eigen::Vector3d>& _normals) {
     std::vector<Eigen::Vector3d> normals = _normals;
     if (normals.size() == 0) {
         normals = std::vector<Eigen::Vector3d>(3, (positions[1] - positions[0]).cross(positions[2] - positions[0]).normalized());
@@ -638,12 +638,12 @@ void Viewer::add_triangle(const std::vector<Eigen::Vector3d>& positions, const E
     extra_triangle_colors_.push_back(std::vector<Eigen::Vector3d>(3, color));
 }
 
-void Viewer::add_line(const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& color) {
+void StarDecomposition::Viewer::add_line(const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& color) {
     extra_line_positions_.push_back({a, b});
     extra_line_colors_.push_back(std::vector<Eigen::Vector3d>(2, color));
 }
 
-void Viewer::add_sphere(const Eigen::Vector3d& c, double r, const Eigen::Vector3d& color, int res) {
+void StarDecomposition::Viewer::add_sphere(const Eigen::Vector3d& c, double r, const Eigen::Vector3d& color, int res) {
     double phi = 1.61803398875; // = (1 + sqrt(5)) / 2 (Golden ratio)
     std::vector<Eigen::Vector3d> vertices = {
         {0, 1, phi},
@@ -707,7 +707,7 @@ void Viewer::add_sphere(const Eigen::Vector3d& c, double r, const Eigen::Vector3
     }
 }
 
-void Viewer::add_cylinder(const Eigen::Vector3d& a, const Eigen::Vector3d& b, double r, const Eigen::Vector3d& color, int res) {
+void StarDecomposition::Viewer::add_cylinder(const Eigen::Vector3d& a, const Eigen::Vector3d& b, double r, const Eigen::Vector3d& color, int res) {
     Eigen::Vector3d x = (b - a).normalized();
     Eigen::Vector3d y = x.cross(std::abs(x(0)) > 0.999 ? Eigen::Vector3d(0, 1, 0) : Eigen::Vector3d(1, 0, 0)).normalized();
     Eigen::Vector3d z = x.cross(y).normalized();
@@ -729,7 +729,7 @@ void Viewer::add_cylinder(const Eigen::Vector3d& a, const Eigen::Vector3d& b, do
     }
 }
 
-void Viewer::add_cone(const Eigen::Vector3d& a, const Eigen::Vector3d& b, double r, const Eigen::Vector3d& color, int res) {
+void StarDecomposition::Viewer::add_cone(const Eigen::Vector3d& a, const Eigen::Vector3d& b, double r, const Eigen::Vector3d& color, int res) {
     Eigen::Vector3d ab = b - a;
     double l = ab.norm();
     Eigen::Vector3d x = ab / l;
@@ -754,7 +754,7 @@ void Viewer::add_cone(const Eigen::Vector3d& a, const Eigen::Vector3d& b, double
     }
 }
 
-void Viewer::add_coordinate_system() {
+void StarDecomposition::Viewer::add_coordinate_system() {
     for (int i = 0; i < 3; i++) {
         Eigen::Vector3d unit = Eigen::Vector3d::Zero();
         unit(i) = 1;
@@ -762,11 +762,11 @@ void Viewer::add_coordinate_system() {
     }
 }
 
-void Viewer::set_scale(double scale) {
+void StarDecomposition::Viewer::set_scale(double scale) {
     scale_ = scale;
 }
 
-void Viewer::frame() {
+void StarDecomposition::Viewer::frame() {
     glfwPollEvents();
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -1294,7 +1294,7 @@ void Viewer::frame() {
     }
 }
 
-Eigen::Vector3d Viewer::position(Vertex v) {
+Eigen::Vector3d StarDecomposition::Viewer::position(Vertex v) {
     if (parameter_space_) {
 #ifndef TET
         auto tex = mesh_.property<Vertex, Eigen::Vector2d>("tex", {0.5, 0.5});
@@ -1309,7 +1309,7 @@ Eigen::Vector3d Viewer::position(Vertex v) {
     return mesh_.position(v);
 }
 
-void Viewer::to_float_mat(const Eigen::Matrix4d& m, float array[16]) {
+void StarDecomposition::Viewer::to_float_mat(const Eigen::Matrix4d& m, float array[16]) {
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
             array[4 * j + i] = m(i, j);
@@ -1317,6 +1317,6 @@ void Viewer::to_float_mat(const Eigen::Matrix4d& m, float array[16]) {
     }
 }
 
-Eigen::Vector2d Viewer::to_screen(ImVec2 mouse_pos, ImVec2 size) {
+Eigen::Vector2d StarDecomposition::Viewer::to_screen(ImVec2 mouse_pos, ImVec2 size) {
     return Eigen::Vector2d(mouse_pos.x - size.x / 2, size.y / 2 - mouse_pos.y);
 }

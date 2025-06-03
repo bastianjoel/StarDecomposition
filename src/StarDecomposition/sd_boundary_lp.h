@@ -3,11 +3,13 @@
 #include "lp.h"
 #include "mesh.h"
 #include "sd_boundary.h"
-#include "volume_mesh.h"
 #include "vectorq.h"
+#include "volume_mesh.h"
 #include <optional>
 #include <utility>
 
+namespace StarDecomposition
+{
 class StarDecompositionBoundaryLp : public StarDecompositionBoundary {
 public:
     StarDecompositionBoundaryLp(Mesh& m, int seed = 0) : StarDecompositionBoundary(m, seed) {}
@@ -27,3 +29,4 @@ private:
     bool is_valid_fixpoint(Mesh& mesh, MeshBoundary &boundary, const Vector3q& fixV, Vector3q& center);
     bool is_valid_component(Mesh& mesh, MeshBoundary &boundary, const Vector3q& fixV, Vector3q& center);
 };
+}

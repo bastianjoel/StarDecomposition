@@ -1,17 +1,19 @@
 #include "OpenMesh/Core/IO/MeshIO.hh"
-#include "mesh.h"
-#include "retet.h"
-#include "sd.h"
+#include "StarDecomposition/mesh.h"
+#include "StarDecomposition/retet.h"
+#include "StarDecomposition/sd.h"
 #include <ctime>
 
 #ifdef GUI
-#include "viewer.h"
+#include "StarDecomposition/viewer.h"
 #endif
 
 void print_usage(std::string arg0, std::string path) {
     std::cout << "Usage: " << arg0 << " <N> [-a tet|boundary-lp|boundary] [-o <out_dir>] [-b] [-f]" << std::endl;
     std::cout << "  e.g. " << arg0 << " " << path << SEP << "meshes" << SEP << "thumb.vtk" << std::endl;
 }
+
+using namespace StarDecomposition;
 
 int main(int argc, char** argv) {
     std::string arg0 = std::string(argv[0]);
